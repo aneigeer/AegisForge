@@ -1,0 +1,323 @@
+{
+  "schema_version": "3.0.0",
+  "product_name": "AegisForge",
+  "document_title": "AegisForge 企业级全栈自主安全运维平台（Multi-Agent SecOps）— V3.0 AI 执行规范",
+  "generated_at": "2026-11-23T19:25:00+08:00",
+  "target_executor": "autonomous_coding_agent",
+  "evolution_goal": {
+    "from": "单一垂直的数据库漏洞检测与自进化修复平台 (V2.0 生产增强版已落地)",
+    "to": "面向企业全栈基础设施（Database / K8s / Host / Web-API + 后端源码）的多智能体协作自主安全运维平台 (Multi-Agent SecOps Platform)",
+    "core_strategy": "确定性 StateGraph (DAG 状态机骨架) + 专业化多 Agent 节点 + 标准化 MCP 工具调用 + 可插拔四接口业务域插件 (Domain Plugin)",
+    "preserved_v2_security_foundation": [
+      "胖控制面（内网 K8s 服务端）+ 瘦桌面端（零凭据安全工作台 AegisForge.exe）",
+      "零信任动态凭据（Vault/KMS 短期 Lease，控制库 dg_ctl 仅 SELECT/INSERT 追加写权限）",
+      "双向可逆隐私脱敏网关（KMS/Fernet 信封加密按 workflow_run_id 与 TTL 持久化，闭环销毁）",
+      "双轨沙箱验证（轨道 1 沙箱 PoC 消误报 + Dry-Run；轨道 2 生产只读预检防 MDL 锁雪崩）",
+      "HITL 画布内长按边框蓄力审批（防误触回弹与微震动）+ 双期分级回滚保护（0~5m 实时熔断 + 24~72h SIEM 一键紧急恢复）",
+      "WORM SHA-256 不可篡改审计哈希链 + 三权分立 RBAC (SEC / DBA / AUDITOR)"
+    ]
+  },
+  "current_baseline_status": {
+    "completed_phase": "Phase 1 (V2.0 生产增强 MVP 已就绪)",
+    "verified_unit_tests": "1,970 passed (tests/unit/test_ten_core_modules.py + tests/unit/test_desktop_launcher.py: 19 passed)",
+    "desktop_binary": "AegisForge.exe (apps/desktop/NativeShell.cs + scripts/build_desktop_app.ps1)",
+    "existing_core_files": {
+      "platform_engine": "core/platform/ten_modules.py",
+      "agent_loop": "core/agent/loop.py",
+      "mcp_reference_adapter": "adapters/postgres_mcp/",
+      "llm_gateway": "core/llm/provider_registry.py",
+      "knowledge_wiki": "core/knowledge/wiki_compiler.py",
+      "knowledge_promotion": "core/knowledge/promotion.py",
+      "worm_audit": "core/audit/worm.py",
+      "rbac_oidc": "core/auth/rbac.py",
+      "desktop_shell": "apps/desktop/NativeShell.cs",
+      "desktop_bridge": "apps/desktop/launcher.py"
+    }
+  },
+  "multi_agent_architecture": {
+    "orchestration_pattern": "StateGraph 确定性 DAG 状态机驱动，严禁无边界自由对话，防止死循环、幻觉失控与 Token 爆炸",
+    "tool_protocol": "Model Context Protocol (MCP) 统一工具契约（复用并扩展 adapters/postgres_mcp/ 的 JSON-RPC stdio/HTTP 工具封装规范）",
+    "shared_graph_state_schema": {
+      "workflow_run_id": "str (绑定加密脱敏映射表生命周期与 WORM 审计链)",
+      "tenant_id": "str",
+      "source_trigger": "INSPECTION_SCHEDULE | SIEM_ALERT | CI_PR_GATE",
+      "target_assets": "list[AssetPublicView]",
+      "triage_tickets": "list[PrioritizedRiskTicket (P0~P3)]",
+      "domain_patches": "dict[asset_domain, DomainRemediationProposal]",
+      "critic_verdicts": "dict[proposal_id, CriticSandboxVerdict]",
+      "self_correction_round": "int (受 max_self_correction_rounds=3 硬上限约束，防死循环)",
+      "hitl_status": "PENDING | APPROVED | REJECTED",
+      "execution_observations": "list[ExecutionObservation]",
+      "evolution_candidates": "list[DistilledRuleCandidate]"
+    },
+    "five_core_agents": [
+      {
+        "agent_id": "AGENT_SUPERVISOR",
+        "name": "总控调度 Agent (Supervisor / Planner)",
+        "target_module": "core/agents/supervisor.py",
+        "responsibilities": [
+          "接收定时巡检任务或 SIEM 实时告警，识别受影响资产域（Database / K8s / Host / AppSec-Code）",
+          "构造确定性 StateGraph 执行计划，将子任务并发或串行分发至对应领域专家 Agent",
+          "支持跨资产联动研判（例如：Web API 存在 SQL 注入时，同时调度 AppSec-Agent 下发 WAF/代码补丁与 DB-Agent 收敛数据库最小权限）"
+        ],
+        "hard_guards": [
+          "禁止直接修改生产环境，无直接写工具权限",
+          "单次跨栈联动最大并发分支数与总步数受状态机预算限制"
+        ]
+      },
+      {
+        "agent_id": "AGENT_TRIAGE",
+        "name": "研判与上下文定级 Agent (Triage Agent)",
+        "target_module": "core/agents/triage.py",
+        "wraps_existing": "core/platform/ten_modules.py::ContextualRiskScorer",
+        "responsibilities": [
+          "联动 CMDB、网络拓扑与资产三级标签，评估业务暴露面（公网/内网）、核心等级与敏感数据分布",
+          "过滤内网隔离低敏感度噪音告警，输出标准化 P0~P3 统一风险工单"
+        ]
+      },
+      {
+        "agent_id": "AGENT_DOMAIN_SPECIALISTS",
+        "name": "领域专家 Agent 群 (Domain Specialist Agents — 可水平扩展)",
+        "target_package": "core/agents/specialists/",
+        "responsibilities": [
+          "按技术栈拆分，挂载各自领域插件的 Probe / Masker / Knowledge，并统一生成「三层修复方案 + 强制 Rollback 脚本 + 影响评估」"
+        ],
+        "specialists": [
+          {
+            "id": "DB-Agent",
+            "file": "core/agents/specialists/db_agent.py",
+            "domain_plugin": "database",
+            "scope": "MySQL / PostgreSQL / Redis / TiDB / Oracle 权限收敛、慢查询优化、CIS/等保配置与 CVE 加固"
+          },
+          {
+            "id": "K8s-Agent",
+            "file": "core/agents/specialists/k8s_agent.py",
+            "domain_plugin": "k8s",
+            "scope": "Pod 特权逃逸检测、RBAC 最小权限收敛、NetworkPolicy 隔离与容器镜像 CVE 修复"
+          },
+          {
+            "id": "Host-Agent",
+            "file": "core/agents/specialists/host_agent.py",
+            "domain_plugin": "host",
+            "scope": "Linux/Windows 主机基线、SSH 弱口令、内核 CVE 补丁与异常进程隔离"
+          },
+          {
+            "id": "AppSec-Agent",
+            "file": "core/agents/specialists/appsec_agent.py",
+            "domain_plugin": "appsec",
+            "scope": "后端源码 (Python/Java/Go/TS) SQLi/IDOR/N+1/硬编码密钥审计、依赖 SCA 漏洞与 WAF 拦截策略生成"
+          }
+        ]
+      },
+      {
+        "agent_id": "AGENT_CRITIC",
+        "name": "红队审查与沙箱验证 Agent (Critic & Harness Agent)",
+        "target_module": "core/agents/critic.py",
+        "wraps_existing": "core/platform/ten_modules.py::SandboxHarnessVerifier",
+        "responsibilities": [
+          "与专家 Agent 形成「生成—对抗验证」闭环：通过 Sandbox Manager 在对应沙箱运行 PoC 消除误报、执行修复 Dry-Run 与业务兼容性回放，并校验回滚脚本可逆性",
+          "红队复核：检查修复方案是否遗漏 Rollback、是否未包裹会话级超时/原子回退、是否触碰生产只读预检拦截线（如 >30s 长事务）"
+        ],
+        "self_correction_loop": {
+          "trigger": "沙箱 PoC 修复后仍未拦截 / Dry-Run 报错 / 兼容性低于阈值 / 缺少有效回滚脚本",
+          "action": "将结构化错误堆栈与沙箱日志打回给原领域专家 Agent 触发自我修正 (Self-Correction)",
+          "max_rounds": 3,
+          "on_exhausted": "转入人工专家介入队列并挂起，绝不带病放行"
+        }
+      },
+      {
+        "agent_id": "AGENT_EVOLUTION",
+        "name": "自主进化蒸馏 Agent (Evolution Agent)",
+        "target_module": "core/agents/evolution.py",
+        "wraps_existing": "core/platform/ten_modules.py::ToggleableEvolutionEngine",
+        "responsibilities": [
+          "后台异步复盘历史工单、误报驳回与工程师 HITL 修改 Diff，自动蒸馏跨领域检测规则与修复模板",
+          "强制提交至 Shadow Mode（影子测试）验证通过后方可进入跨领域共享记忆库，支持 Git 风格快照与一键回滚"
+        ]
+      }
+    ]
+  },
+  "domain_plugin_sdk_standard": {
+    "base_package": "core/plugins/",
+    "interface_file": "core/plugins/contracts.py",
+    "four_mandatory_interfaces": [
+      "1. DomainProbe (低侵入只读限流探测接口: token_bucket_qps + cpu_breaker)",
+      "2. DomainMasker (格式感知双向可逆脱敏器: 统一注册至多模态脱敏网关)",
+      "3. DomainSandboxHarness (隔离沙箱 PoC 复现 + 修复 Dry-Run + 回滚验证接口)",
+      "4. DomainRollbackExecutor (带超时熔断与原子/声明式回退的生产执行器接口)"
+    ],
+    "plugins_matrix": [
+      {
+        "domain_id": "database",
+        "package": "core/plugins/database/",
+        "phase": "Phase 1 (已有核心实现，需抽取适配器符合 DomainPlugin 契约)",
+        "probe": "令牌桶限流只读 SQL + CIS/等保2.0 基线 + CVE 匹配",
+        "masker": "SQL AST 词法/语法树节点替换 (SqlAstAdapter)",
+        "harness": "轻量瞬时容器 (MySQL/PG/Redis) + 重量常驻温备池逻辑隔离 (TiDB/Oracle) + 轨道2 生产只读预检",
+        "executor": "lock_wait_timeout=3s 会话熔断注入 + 0~5m 实时熔断 + 24~72h SIEM 一键紧急恢复"
+      },
+      {
+        "domain_id": "k8s",
+        "package": "core/plugins/k8s/",
+        "phase": "Phase 3 (V3.0)",
+        "probe": "只读 K8s API / Kube-bench / RBAC 越权与特权 Pod 审计",
+        "masker": "YAML / Helm 密钥、Secret、Namespace 与内部域名双向脱敏",
+        "harness": "Kind / vCluster 虚拟隔离集群跑提权 PoC 与 Manifest Dry-Run (`--dry-run=server`)",
+        "executor": "声明式回退 + `kubectl rollout undo` + Pod 就绪探针实时熔断"
+      },
+      {
+        "domain_id": "host",
+        "package": "core/plugins/host/",
+        "phase": "Phase 3 (V3.0)",
+        "probe": "只读受限 SSH 基线巡检、SSH 弱口令与内核 CVE 探测",
+        "masker": "内网 IP / 主机名 / 敏感目录路径 / 用户名双向脱敏",
+        "harness": "轻量隔离 Docker / MicroVM 验证基线脚本与回退指令",
+        "executor": "Ansible 幂等加固 Playbook + 强制逆向回滚 Playbook / 系统快照还原"
+      },
+      {
+        "domain_id": "appsec",
+        "package": "core/plugins/appsec/",
+        "phase": "Phase 4 (V4.0) — 含后端代码审计",
+        "probe": "后端源码 AST 静态分析 (SQLi/IDOR/N+1/硬编码密钥) + 依赖 SCA 扫描 + 流量镜像",
+        "masker": "源码标识符/业务路径 AST 脱敏 + HTTP Token / Cookie / 业务参数脱敏",
+        "harness": "App + DB 联合容器沙箱与影子流量回放 (Traffic Replay)",
+        "executor": "PR Patch 建议生成 + WAF 规则热下发与一键回退 / 网关限流恢复"
+      }
+    ]
+  },
+  "platform_foundation_upgrades": [
+    {
+      "upgrade_id": "UPG-01",
+      "name": "多模态双向脱敏网关 (Multimodal Privacy Gateway)",
+      "target_file": "core/privacy_gateway/multimodal.py",
+      "description": "从单一 SQL AST 解析器升级为按载荷格式路由的多模态解析器 (SQL AST + K8s YAML + JSON 报文 + 后端源码/系统日志)；复用 M07 的 KMS/Fernet 信封加密持久化 (workflow_run_id + TTL) 与还原前结构校验，确保跨 Agent 接力与跨天审批零泄露、零误还原。"
+    },
+    {
+      "upgrade_id": "UPG-02",
+      "name": "统一资源与沙箱调度层 (Unified Sandbox Manager)",
+      "target_file": "core/plugins/sandbox_manager.py",
+      "description": "按 DomainPlugin 类型统一路由并管理隔离沙箱生命周期：瞬时容器池 (Ephemeral)、常驻温备逻辑隔离池 (Warm Pool)、虚拟 K8s 集群 (vCluster/Kind) 与流量回放沙箱，执行强超时回收与资源配额隔离。"
+    },
+    {
+      "upgrade_id": "UPG-03",
+      "name": "跨领域共享记忆库 (Enterprise SecOps Memory)",
+      "target_file": "core/memory/secops_memory.py",
+      "description": "在现有 core/knowledge/wiki_compiler.py 与 8-gate Hybrid RAG 基础上，升级为跨资产域共享记忆库，沉淀资产拓扑关系、历史变更窗口、业务峰值容忍度与跨栈误报特征，按 RBAC 租户隔离检索。"
+    },
+    {
+      "upgrade_id": "UPG-04",
+      "name": "仓库平滑演进映射策略（向后兼容现有代码）",
+      "description": "保留现有 apps/api/、apps/desktop/ (AegisForge.exe)、core/、adapters/、workers/、database/、deploy/ 目录的向后兼容性，不破坏现有 1,970 个测试与 W12 发布门禁；新增包清晰挂载于 core/agents/、core/plugins/、core/privacy_gateway/ 与 core/orchestrator/ 下，并在逻辑上与控制面/瘦桌面端拓扑保持完全一致。"
+    }
+  ],
+  "engineering_invariants": [
+    {
+      "id": "INV-COMPAT-1970-TESTS",
+      "rule": "所有增量开发严禁破坏现有 core/platform/ten_modules.py 与已有 1,970 项单元测试；涉及底层 DB 权限的迁移继续遵守 dg_ctl 对事件/审计表仅 SELECT/INSERT（append-only）约束。"
+    },
+    {
+      "id": "INV-CRITIC-LOOP-BOUND",
+      "rule": "Critic Agent -> 专家 Agent 的 Self-Correction 自动修正循环必须设置硬上限 max_rounds <= 3；超限必须转人工挂起并记录 WORM 审计事件。"
+    },
+    {
+      "id": "INV-MCP-STANDARD-TOOLING",
+      "rule": "所有跨 Agent 工具调用必须通过标准 MCP ToolRegistry 暴露只读/受控工具契约，严格执行参数校验与输入脱敏。"
+    },
+    {
+      "id": "INV-PYTEST-COMMAND",
+      "rule": "运行单元测试必须使用 .\\.venv\\Scripts\\python.exe -m pytest <path> -o addopts=\"\" -q -p no:cacheprovider，且禁止并发运行多个 pytest 进程。"
+    }
+  ],
+  "phased_execution_plan": [
+    {
+      "phase_id": "Phase 1",
+      "title": "MVP — 数据库专项做深（当前已完成，可直接复用与封装）",
+      "status": "COMPLETED_BASELINE",
+      "deliverables": [
+        "core/platform/ten_modules.py（V2.0 生产增强：Vault Lease、SQL AST 加密持久化脱敏、双轨沙箱、会话锁超时+双期回滚、WORM+SARIF）",
+        "apps/desktop/NativeShell.cs + AegisForge.exe（瘦桌面端五大视图、长按边框审批、1.4s圆心扩散/极速排障双模式）",
+        "下一步衔接任务：抽取 core/plugins/contracts.py 插件基类并将 database 能力包装为首个标准 DomainPlugin (core/plugins/database/plugin.py)"
+      ]
+    },
+    {
+      "phase_id": "Phase 2",
+      "title": "V2.5 — StateGraph 多 Agent 协作与 Critic 对抗自愈",
+      "status": "NEXT_UP_EXECUTABLE",
+      "tasks": [
+        {
+          "task_id": "P2-T1",
+          "file": "core/plugins/contracts.py & core/plugins/database/plugin.py",
+          "action": "定义 DomainProbe / DomainMasker / DomainSandboxHarness / DomainRollbackExecutor 四个抽象协议，并将现有 M02~M06 数据库能力封装为标准 database 插件。"
+        },
+        {
+          "task_id": "P2-T2",
+          "file": "core/orchestrator/state_graph.py",
+          "action": "实现轻量级确定性 StateGraph 状态机引擎，支持节点注册、条件边路由 (Router)、Critic 自愈回退边（带 max_rounds=3 硬熔断）以及 HITL 中断挂起/恢复快照。"
+        },
+        {
+          "task_id": "P2-T3",
+          "file": "core/agents/{supervisor,triage,critic,evolution}.py & core/agents/specialists/db_agent.py",
+          "action": "实现 5 类核心 Agent；打通「Supervisor -> Triage -> DB-Agent 生成 -> Critic 沙箱打回 -> DB-Agent 自愈重提交 -> Critic 放行 -> HITL」完整多 Agent 对抗闭环，并通过 MCP ToolClient 调用工具。"
+        },
+        {
+          "task_id": "P2-T4",
+          "file": "core/privacy_gateway/multimodal.py",
+          "action": "将 SqlAstAdapter 重构注册为 SQL 模态处理器，同时预留 YAML / JSON / CodeAST 解析器注册点。"
+        },
+        {
+          "task_id": "P2-T5",
+          "file": "apps/desktop/NativeShell.cs",
+          "action": "在桌面端工作流视图中增加多 Agent 角色徽章与「Critic 打回自愈轮次 (Self-Correction Round)」可视化提示与日志追踪。"
+        }
+      ],
+      "acceptance_tests": "tests/unit/test_v3_state_graph_agents.py（验证 Supervisor 路由、Critic 首次打回 + DB-Agent 第 2 轮修正通过、第 3 轮仍失败强制熔断转人工）"
+    },
+    {
+      "phase_id": "Phase 3",
+      "title": "V3.0 — 跨业务域扩张：云原生 K8s 与主机插件接入",
+      "status": "PLANNED",
+      "tasks": [
+        {
+          "task_id": "P3-T1",
+          "file": "core/privacy_gateway/yaml_masker.py & core/plugins/k8s/plugin.py & core/agents/specialists/k8s_agent.py",
+          "action": "新增 K8s YAML 密钥/Namespace 双向脱敏器、K8s 只读审计 Probe、Kind/vCluster 沙箱契约与 kubectl rollout undo 声明式回退器。"
+        },
+        {
+          "task_id": "P3-T2",
+          "file": "core/plugins/host/plugin.py & core/agents/specialists/host_agent.py",
+          "action": "新增主机只读基线/CVE Probe、IP/路径脱敏器、轻量 MicroVM/Docker 沙箱与 Ansible 逆向 Playbook 回滚器。"
+        },
+        {
+          "task_id": "P3-T3",
+          "file": "core/plugins/sandbox_manager.py & core/memory/secops_memory.py",
+          "action": "实现 Unified Sandbox Manager 统一调度瞬时容器/温备池/vCluster，并实现跨领域共享记忆库，支撑 DB + K8s 跨层联动处置演练。"
+        }
+      ],
+      "acceptance_tests": "tests/unit/test_v3_k8s_host_cross_domain.py（验证 DB + K8s 跨资产联动工单协同、YAML 双向脱敏还原、沙箱调度路由器）"
+    },
+    {
+      "phase_id": "Phase 4",
+      "title": "V4.0 — 全栈自治与后端代码/Web-API 插件生态闭环",
+      "status": "PLANNED",
+      "tasks": [
+        {
+          "task_id": "P4-T1",
+          "file": "core/plugins/appsec/plugin.py & core/agents/specialists/appsec_agent.py",
+          "action": "新增后端代码静态审计 + 依赖 SCA + WAF 流量沙箱回放插件，实现「慢查询/SQL注入告警 -> 自动定位后端对应 ORM/Controller 源码 -> 联合生成 DB 加固 SQL + 代码 Patch」。"
+        },
+        {
+          "task_id": "P4-T2",
+          "file": "core/plugins/sdk.py & apps/api/routes/",
+          "action": "发布第三方插件 SDK 契约与标准 SARIF v2.1.0 跨栈报告（同时包含 db:// 资产与 file://#L 行号位置），全面对接 SIEM / SOAR / CMDB / CI-CD，支持低风险高置信度规则受控全自动自愈。"
+        }
+      ],
+      "acceptance_tests": "tests/unit/test_v4_appsec_cross_stack.py（验证 AppSec + DB 跨栈联动定位与 App+DB 联合沙箱验证）"
+    }
+  ],
+  "verification_and_release_commands": {
+    "unit_tests_baseline": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_ten_core_modules.py tests/unit/test_desktop_launcher.py -o addopts=\"\" -q -p no:cacheprovider",
+    "full_unit_tests": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit -o addopts=\"\" -q -p no:cacheprovider",
+    "desktop_build": "powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1",
+    "ci_gate": "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1"
+  }
+}
