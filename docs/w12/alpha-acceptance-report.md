@@ -38,7 +38,7 @@ AC-05 W11 负面集复核 29/29 条被拒（w11_source_status=PASSED）。AC-06 
 
 ## 成本
 
-成本：本轮未产生训练与推理账单，故不提供金额类数值。镜像 digest=UNKNOWN、制品 hash=bd4bc40fa08609a100232f21dcd437ae191808f2570806eccfc8ec15a2af8408、commit=0d8b5c4d1b100c6de050dfc3ba1c545f01b62ea8（缺失项均记 UNKNOWN 并登记，不用估计值顶替）。
+成本：本轮未产生训练与推理账单，故不提供金额类数值。镜像 digest=UNKNOWN、制品 hash=bd4bc40fa08609a100232f21dcd437ae191808f2570806eccfc8ec15a2af8408、commit=1be436942bb7e74f328fc124fc905c4191572c0f（缺失项均记 UNKNOWN 并登记，不用估计值顶替）。
 
 ## 已知问题
 

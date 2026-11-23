@@ -2,7 +2,7 @@
 
 - 生成方式：`core.assurance.rc.build_rc_freeze()`（**纯字符串拼装**）+ `collect_rc_manifest()`；
   正文里的限制清单 JSON 与 `docs/w11/limitations.json` **同源**（同一 `build_limitations()` 输出）。
-- 时点锚：`commit = 0d8b5c4d1b100c6de050dfc3ba1c545f01b62ea8`（由 `git rev-parse HEAD` 取得，**未写死**）
+- 时点锚：`commit = 1be436942bb7e74f328fc124fc905c4191572c0f`（由 `git rev-parse HEAD` 取得，**未写死**）
 - 上游门禁口径：W07「有条件放行；门禁通过：否」、W08「有条件放行」、W09「门禁未评」、W10「门禁未评」。
   **本文件不构成门禁结论，也不预写 Alpha 结论**（W12-Q1/Q4）。
 
@@ -11,7 +11,7 @@
 | 字段 | 取值 |
 |---|---|
 | `manifest_version` | `w11-rc-v1` |
-| `commit` | `0d8b5c4d1b100c6de050dfc3ba1c545f01b62ea8` |
+| `commit` | `1be436942bb7e74f328fc124fc905c4191572c0f` |
 | `db_image_digest` | `UNKNOWN`（W11-Q7：未验证，登记为问题） |
 | `adapter_version` | `mysql:1.0;postgres_mcp:1.0` |
 | `tool_schema_version` | `tool-schema-v0` |

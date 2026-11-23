@@ -1,6 +1,6 @@
 {
   "manifest_version": "w11-rc-v1",
-  "commit": "0d8b5c4d1b100c6de050dfc3ba1c545f01b62ea8",
+  "commit": "1be436942bb7e74f328fc124fc905c4191572c0f",
   "db_image_digest": "UNKNOWN",
   "adapter_version": "mysql:1.0;postgres_mcp:1.0",
   "tool_schema_version": "tool-schema-v0",
