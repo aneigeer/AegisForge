@@ -6,8 +6,11 @@
 [![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#四快速开始)
 [![Platform](https://img.shields.io/badge/Desktop-AegisForge.exe-6366f1.svg)](#三原生桌面工作台与特色交互)
 [![Architecture](https://img.shields.io/badge/Architecture-4_Layers_%C2%B7_10_Modules-f59e0b.svg)](#二四层十模块架构)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 > 面向企业级异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）与后端服务代码的**零信任漏洞探测、AST 级出站双向可逆脱敏、双轨沙箱 Harness 验证、画布内长按 HITL 人工审批及受控自主进化平台**，持续演进**后端代码安全审计与多 Agent 协同调度（Multi-Agent Collaboration）**。
+
+> **项目状态：技术预览（TECH_PREVIEW）**。接口、规则与部署方式可能变化，不建议直接用于生产环境；已知限制见 [docs/w12/known-limitations.md](docs/w12/known-limitations.md)，安全披露流程见 [SECURITY.md](SECURITY.md)。
 
 ---
 
@@ -214,3 +217,12 @@ tests/                  单元测试与集成测试（1,970+ 用例）
 - **控制库只追加权限**：控制库账号 `dg_ctl` 对审计与事件表仅授予 `SELECT / INSERT`（禁止 `UPDATE / DELETE`）。
 - **凭证与映射零明文**：所有生产 DSN、BYOK Key 与 AST 脱敏映射表均经 `Fernet / KMS` 加密存储，桌面端零凭据落盘。
 - **失败闭环（Fail-Closed）**：策略缺失拒绝执行；缺少 `Rollback` 脚本禁止进入沙箱/生产；轨道 2 发现 `>30s` 活跃长事务自动挂起变更窗口。
+
+---
+
+## 许可证与安全
+
+- **许可证**：本项目采用 [Apache License 2.0](LICENSE) 授权。
+- **第三方声明**：依赖与许可信息见 [NOTICE](NOTICE)。
+- **安全披露**：请勿公开提交安全 Issue，流程见 [SECURITY.md](SECURITY.md)。
+- **社区规范**：参与贡献即表示同意 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) 与 [CONTRIBUTING.md](CONTRIBUTING.md)。

@@ -1,0 +1,65 @@
+name: Bug 报告
+description: 报告可复现的功能缺陷或异常行为
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请先搜索已有 Issue，并**移除日志中的凭据、内网地址与客户数据**。
+        安全漏洞请勿在此提交，请按 [SECURITY.md](https://github.com/aneigeer/dbg_harness/blob/main/SECURITY.md) 私密报告。
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / 提交
+      description: 输出版本号或 `git rev-parse --short HEAD`
+      placeholder: "2.0.0 / d347762"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: 影响组件
+      options:
+        - 核心编排与 DAG（core/platform）
+        - AST 脱敏与模型网关
+        - 沙箱 Harness / 生产预检
+        - 审批与 RBAC
+        - 审计与 SARIF 导出
+        - 原生桌面端（AegisForge.exe）
+        - 部署与 CI
+        - 文档
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请给出最小、可重复的操作序列
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为 / 实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图（已脱敏）
+      description: 请删除凭据、Token、真实主机名与业务数据
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，未发现重复
+          required: true
+        - label: 我已移除日志中的凭据与敏感数据
+          required: true

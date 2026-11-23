@@ -4,6 +4,13 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-and-config:
     runs-on: ubuntu-latest
@@ -32,12 +39,15 @@ jobs:
         run: |
           set -e
           PATTERNS='BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}|DG_(RO|RW|PG_RO|PG_RW|ADMIN)_DSN=[a-z]+://[^:\s]+:(?!CHANGE_ME)[^@\s]+@'
-          if grep -RInE "$PATTERNS" \
+          # 与 scripts/ci_check.ps1 保持一致：W09 三个测试文件含已登记的截断假 PEM
+          if grep -RInP "$PATTERNS" \
             --include='*.py' --include='*.toml' --include='*.yml' --include='*.yaml' \
             --include='*.json' --include='*.md' --include='*.ps1' --include='*.sql' \
             --include='*.txt' --include='*.example' \
             --exclude-dir=.git --exclude-dir=.venv --exclude-dir=项目规划 --exclude-dir=runs \
-            --exclude-dir=__pycache__ --exclude=ci_check.ps1 .; then
+            --exclude-dir=__pycache__ --exclude=ci_check.ps1 \
+            --exclude=test_w09_redaction_engine.py --exclude=test_w09_redaction_gate.py \
+            --exclude=test_w09_redaction_wiring.py .; then
             echo "Secret scan failed" >&2
             exit 1
           fi
@@ -49,20 +59,20 @@ jobs:
       mysql:
         image: mysql:8.0.46
         env:
-          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_ROOT_PASSWORD: CHANGE_ME_CI_ROOT
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpw --silent"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pCHANGE_ME_CI_ROOT --silent"
           --health-interval=5s --health-timeout=5s --health-retries=20
     env:
-      DG_ADMIN_DSN: mysql://root:rootpw@127.0.0.1:3306/mysql?charset=utf8mb4
-      DG_RO_PASSWORD: ro_pw
-      DG_RW_PASSWORD: rw_pw
-      DG_CONTROL_PASSWORD: ctl_pw
-      DG_RO_DSN: mysql://dg_ro:ro_pw@127.0.0.1:3306/dg_lab?charset=utf8mb4
-      DG_RW_DSN: mysql://dg_rw:rw_pw@127.0.0.1:3306/dg_lab?charset=utf8mb4
-      DG_CONTROL_DSN: mysql://dg_ctl:ctl_pw@127.0.0.1:3306/dg_system?charset=utf8mb4
+      DG_ADMIN_DSN: mysql://root:CHANGE_ME_CI_ROOT@127.0.0.1:3306/mysql?charset=utf8mb4
+      DG_RO_PASSWORD: CHANGE_ME_CI_RO
+      DG_RW_PASSWORD: CHANGE_ME_CI_RW
+      DG_CONTROL_PASSWORD: CHANGE_ME_CI_CONTROL
+      DG_RO_DSN: mysql://dg_ro:CHANGE_ME_CI_RO@127.0.0.1:3306/dg_lab?charset=utf8mb4
+      DG_RW_DSN: mysql://dg_rw:CHANGE_ME_CI_RW@127.0.0.1:3306/dg_lab?charset=utf8mb4
+      DG_CONTROL_DSN: mysql://dg_ctl:CHANGE_ME_CI_CONTROL@127.0.0.1:3306/dg_system?charset=utf8mb4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
