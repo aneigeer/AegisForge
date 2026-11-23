@@ -9,8 +9,10 @@ from cryptography.fernet import Fernet
 from apps.desktop.launcher import (
     build_browser_app_command,
     ensure_env_and_master_key,
+    get_eval_and_data_summary,
     main,
     pick_port,
+    run_desktop_golden_export,
     run_local_diagnosis,
     save_local_byok_config,
 )
@@ -89,4 +91,24 @@ def test_run_local_diagnosis_redacts_pii_and_returns_hub(tmp_path: Path) -> None
     assert "13812345678" not in res["redacted_symptom"]
     assert res["hub"] in {"#07", "#08", "#04"}
     assert res["confidence"] > 0.8
+
+
+def test_eval_summary_respects_same_direction_verdict_and_golden_export(tmp_path: Path) -> None:
+    exported = run_desktop_golden_export(repo_root=tmp_path)
+    assert exported["status"] == "ok"
+    assert exported["kept"] == 3
+    assert exported["leakage_count"] == 0
+    out_dir = Path(exported["output_dir"])
+    samples_text = (out_dir / "samples.jsonl").read_text(encoding="utf-8")
+    assert "13812345678" not in samples_text
+    assert (out_dir / "manifest.json").is_file()
+
+    summary_ok = get_eval_and_data_summary(repo_root=tmp_path, conflict_mode=False)
+    assert summary_ok["verdict"] == "CANDIDATE_BETTER"
+    assert summary_ok["golden_kept"] == 3
+
+    summary_conflict = get_eval_and_data_summary(repo_root=tmp_path, conflict_mode=True)
+    assert summary_conflict["verdict"] == "INCONCLUSIVE"
+    assert summary_conflict["reason"] == "MIXED_DIRECTION"
+
 

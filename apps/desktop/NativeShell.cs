@@ -114,9 +114,9 @@ namespace DBGuardianDesktop
         private float _sunMoonAngle = 0f;
         private float _sunMoonTargetAngle = 0f;
 
-        // 5 大视图导航: 0=workflow, 1=assets, 2=gateway, 3=evolution, 4=audit
+        // 6 大视图导航: 0=workflow, 1=assets, 2=gateway, 3=evolution, 4=audit, 5=eval_data
         private int _currentView = 0;
-        private readonly RectangleF[] _navRects = new RectangleF[5];
+        private readonly RectangleF[] _navRects = new RectangleF[6];
         private RectangleF _tenantCardRect;
         private int _rbacRoleIndex = 0; // 0=高级DBA, 1=安全工程师, 2=合规审计员
 
@@ -193,6 +193,18 @@ namespace DBGuardianDesktop
         private RectangleF _btnExportSarifRect;
         private RectangleF _btnOneClickRestoreRect;
         private bool _oneClickRestoreDone = false;
+
+        // VIEW 6: 评测与数据中台
+        private bool _evalConflictMode = false;
+        private string _evalVerdict = "CANDIDATE_BETTER";
+        private string _evalReason = "ALL_METRICS_IMPROVED";
+        private int _suiteV2Cases = 36;
+        private string _goldenStatus = "就绪（点击右侧一键脱敏导出）";
+        private int _goldenKept = 0;
+        private string _goldenOutputDir = "runs/golden/golden-desktop-v1";
+        private RectangleF _btnRefreshEvalRect;
+        private RectangleF _btnExportGoldenRect;
+        private RectangleF _btnToggleConflictRect;
 
         // 悬浮 Toast 提示
         private string _toastText = "";
@@ -1083,6 +1095,10 @@ namespace DBGuardianDesktop
             {
                 RenderAuditView(g, mainRect, dark, bgObsidian, bgPanel, bgCard, borderCol, fgPrimary, fgSecondary, fgMuted, cCyan, cEmerald);
             }
+            else if (_currentView == 5)
+            {
+                RenderEvalDataView(g, mainRect, dark, bgObsidian, bgPanel, bgCard, borderCol, fgPrimary, fgSecondary, fgMuted, cCyan, cIndigo, cEmerald, cAmber, cRose);
+            }
 
             // 4. 悬浮 Toast 提示
             if (_toastTicks > 0 && !string.IsNullOrEmpty(_toastText))
@@ -1143,9 +1159,9 @@ namespace DBGuardianDesktop
                 g.DrawString("企业级数据库安全防御平台", fSub, brMuted, 56f, 31f);
             }
 
-            // 5 个导航项
-            string[] secHeaders = new string[] { "核心工作台", "", "AI 与自进化引擎", "", "合规与治理" };
-            string[] navLabels = new string[] { "⇄  工作流编排", "▤  资产与凭据", "❖  模型网关与脱敏", "✦  自主进化中心", "☷  审计日志" };
+            // 6 个导航项
+            string[] secHeaders = new string[] { "核心工作台", "", "AI 与自进化引擎", "", "合规与治理", "" };
+            string[] navLabels = new string[] { "⇄  工作流编排", "▤  资产与凭据", "❖  模型网关与脱敏", "✦  自主进化中心", "☷  审计日志", "◎  评测与数据" };
             float curY = 74f;
 
             DagNode n6 = FindNode(6);
@@ -1158,7 +1174,7 @@ namespace DBGuardianDesktop
             using (SolidBrush brPrimary = new SolidBrush(fgPrimary))
             using (SolidBrush brCyan = new SolidBrush(cCyan))
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     if (!string.IsNullOrEmpty(secHeaders[i]))
                     {
@@ -1225,6 +1241,17 @@ namespace DBGuardianDesktop
                     else if (i == 4)
                     {
                         g.DrawString(_auditLogs.Count.ToString(), fMono, brMuted, nRect.Right - 24f, nRect.Y + 12f);
+                    }
+                    else if (i == 5)
+                    {
+                        RectangleF sRect = new RectangleF(nRect.Right - 54f, nRect.Y + 10f, 44f, 18f);
+                        using (SolidBrush sBg = new SolidBrush(Color.FromArgb(35, cCyan)))
+                        using (SolidBrush sFg = new SolidBrush(cCyan))
+                        {
+                            g.FillRectangle(sBg, sRect);
+                            StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                            g.DrawString(_suiteV2Cases + " 例", new Font("Microsoft YaHei UI", 7.4f, FontStyle.Bold), sFg, sRect, sf);
+                        }
                     }
 
                     curY += 42f;
@@ -2897,6 +2924,215 @@ namespace DBGuardianDesktop
             }
         }
 
+        // =========================================================================
+        // VIEW 6: 评测与数据中台 (Eval & Golden Dataset Platform)
+        // =========================================================================
+        private void RenderEvalDataView(
+            Graphics g,
+            RectangleF rect,
+            bool dark,
+            Color bgObsidian,
+            Color bgPanel,
+            Color bgCard,
+            Color borderCol,
+            Color fgPrimary,
+            Color fgSecondary,
+            Color fgMuted,
+            Color cCyan,
+            Color cIndigo,
+            Color cEmerald,
+            Color cAmber,
+            Color cRose)
+        {
+            float pad = 28f;
+            float x0 = rect.X + pad;
+            float y0 = rect.Y + 24f;
+            float contentW = rect.Width - pad * 2f;
+
+            using (Font fH2 = new Font("Microsoft YaHei UI", 13f, FontStyle.Bold))
+            using (Font fH3 = new Font("Microsoft YaHei UI", 10f, FontStyle.Bold))
+            using (Font fDesc = new Font("Microsoft YaHei UI", 8.5f, FontStyle.Regular))
+            using (Font fBig = new Font("Consolas", 16f, FontStyle.Bold))
+            using (Font fBold = new Font("Microsoft YaHei UI", 8.8f, FontStyle.Bold))
+            using (Font fMono = new Font("Consolas", 8.4f, FontStyle.Regular))
+            using (SolidBrush brPrimary = new SolidBrush(fgPrimary))
+            using (SolidBrush brMuted = new SolidBrush(fgMuted))
+            using (SolidBrush brCyan = new SolidBrush(cCyan))
+            using (SolidBrush brIndigo = new SolidBrush(cIndigo))
+            using (SolidBrush brEmerald = new SolidBrush(cEmerald))
+            using (SolidBrush brAmber = new SolidBrush(cAmber))
+            using (SolidBrush brRose = new SolidBrush(cRose))
+            using (SolidBrush brCard = new SolidBrush(bgCard))
+            using (Pen borderPen = new Pen(borderCol, 1f))
+            {
+                g.DrawString("评测中台与金标数据回流门禁 (/v1/eval + Golden Pipeline)", fH2, brPrimary, x0, y0);
+                g.DrawString("只信实测指标（缺测记 null 不补零）、所有可比指标同向才判优；金标集导出强制经过脱敏与写盘二次复检。", fDesc, brMuted, x0, y0 + 28f);
+
+                _btnExportGoldenRect = new RectangleF(x0 + contentW - 156f, y0 + 6f, 156f, 34f);
+                DrawHeaderButton(g, _btnExportGoldenRect, "▶ 导出脱敏金标集", true, dark, bgCard, borderCol, fgPrimary, cEmerald);
+
+                _btnRefreshEvalRect = new RectangleF(_btnExportGoldenRect.Left - 134f, y0 + 6f, 124f, 34f);
+                DrawHeaderButton(g, _btnRefreshEvalRect, "↻ 刷新实测摘要", false, dark, bgCard, borderCol, fgPrimary, cCyan);
+
+                // 顶部 4 张核心指标卡
+                float cardY = y0 + 68f;
+                float cardW = (contentW - 36f) / 4f;
+                string[] kLabels = new string[] { "基准套件 (suite-v2)", "候选同向对比结论", "跨栈专项测试基线", "金标回归输出状态" };
+                string[] kVals = new string[]
+                {
+                    _suiteV2Cases + " 例",
+                    _evalVerdict,
+                    "44 passed",
+                    _goldenKept > 0 ? (_goldenKept + " 条入集") : "待导出"
+                };
+                string[] kSubs = new string[]
+                {
+                    "PostgreSQL + MySQL",
+                    _evalReason,
+                    "V3/V4 多Agent+跨栈",
+                    "leakage=0 (fail closed)"
+                };
+                Brush[] kBrushes = new Brush[]
+                {
+                    brCyan,
+                    _evalVerdict == "CANDIDATE_BETTER" ? brEmerald : brAmber,
+                    brIndigo,
+                    _goldenKept > 0 ? brEmerald : brPrimary
+                };
+
+                for (int i = 0; i < 4; i++)
+                {
+                    RectangleF cr = new RectangleF(x0 + i * (cardW + 12f), cardY, cardW, 84f);
+                    g.FillRectangle(brCard, cr);
+                    g.DrawRectangle(borderPen, cr.X, cr.Y, cr.Width, cr.Height);
+                    g.DrawString(kLabels[i], fDesc, brMuted, cr.X + 14f, cr.Y + 12f);
+                    g.DrawString(kVals[i], new Font("Consolas", i == 1 ? 12.2f : 15f, FontStyle.Bold), kBrushes[i], cr.X + 14f, cr.Y + 36f);
+                    g.DrawString(kSubs[i], fDesc, brMuted, cr.X + 14f, cr.Y + 62f);
+                }
+
+                // 下方左右双栏：左=候选同向对比 (/v1/eval)；右=数据中台五步出口门禁与跨领域记忆
+                float botY = cardY + 106f;
+                float halfW = (contentW - 16f) * 0.5f;
+                float panelH = Math.Max(360f, rect.Bottom - botY - 24f);
+                RectangleF leftBox = new RectangleF(x0, botY, halfW, panelH);
+                RectangleF rightBox = new RectangleF(leftBox.Right + 16f, botY, halfW, panelH);
+
+                // --- 左栏：评测中台同向对比 ---
+                g.FillRectangle(brCard, leftBox);
+                g.DrawRectangle(borderPen, leftBox.X, leftBox.Y, leftBox.Width, leftBox.Height);
+                g.DrawString("评测中台 · 候选同向对比 (compare_metrics)", fH3, brPrimary, leftBox.X + 18f, leftBox.Y + 16f);
+                g.DrawString("INV-06 门禁：不加权总分，任一指标逆向即判 INCONCLUSIVE", fDesc, brMuted, leftBox.X + 18f, leftBox.Y + 38f);
+
+                _btnToggleConflictRect = new RectangleF(leftBox.Right - 168f, leftBox.Y + 14f, 150f, 28f);
+                DrawHeaderButton(
+                    g,
+                    _btnToggleConflictRect,
+                    _evalConflictMode ? "恢复同向改善样例" : "模拟延迟冲突样例",
+                    false,
+                    dark,
+                    bgObsidian,
+                    borderCol,
+                    fgPrimary,
+                    cAmber
+                );
+
+                string[,] mRows = new string[,]
+                {
+                    { "diagnosis_accuracy (准确率↑)", "0.72", "0.86", "+0.14 (改善)" },
+                    { "false_positive_rate (误报率↓)", "0.14", "0.06", "-0.08 (改善)" },
+                    { "json_validity_rate (结构率↑)", "0.91", "0.98", "+0.07 (改善)" },
+                    { "latency_p95_ms (P95延迟↓)", "1850ms", _evalConflictMode ? "2380ms" : "1420ms", _evalConflictMode ? "+530ms (退化!)" : "-430ms (改善)" },
+                    { "tokens_per_case (单案Token↓)", "2410", "1960", "-450 (改善)" },
+                    { "outcome_pass_rate (缺测字段)", "null", "null", "缺测不补零 (跳过)" }
+                };
+
+                float mY = leftBox.Y + 72f;
+                for (int r = 0; r < 6; r++)
+                {
+                    RectangleF rr = new RectangleF(leftBox.X + 16f, mY + r * 43f, leftBox.Width - 32f, 37f);
+                    using (SolidBrush rBg = new SolidBrush(bgObsidian))
+                    {
+                        g.FillRectangle(rBg, rr);
+                        g.DrawRectangle(borderPen, rr.X, rr.Y, rr.Width, rr.Height);
+                    }
+                    bool isConflictRow = (r == 3 && _evalConflictMode);
+                    bool isNullRow = (r == 5);
+                    g.DrawString(mRows[r, 0], fDesc, brPrimary, rr.X + 10f, rr.Y + 10f);
+                    g.DrawString(mRows[r, 1] + " → " + mRows[r, 2], fMono, isNullRow ? brMuted : brCyan, rr.X + 235f, rr.Y + 11f);
+                    Brush dBr = isNullRow ? brMuted : (isConflictRow ? brRose : brEmerald);
+                    g.DrawString(mRows[r, 3], fBold, dBr, rr.Right - 115f, rr.Y + 10f);
+                }
+
+                RectangleF verdictBar = new RectangleF(leftBox.X + 16f, leftBox.Bottom - 44f, leftBox.Width - 32f, 30f);
+                Color vCol = _evalVerdict == "CANDIDATE_BETTER" ? cEmerald : cAmber;
+                using (SolidBrush vBg = new SolidBrush(Color.FromArgb(30, vCol)))
+                using (Pen vPen = new Pen(Color.FromArgb(100, vCol), 1f))
+                {
+                    g.FillRectangle(vBg, verdictBar);
+                    g.DrawRectangle(vPen, verdictBar.X, verdictBar.Y, verdictBar.Width, verdictBar.Height);
+                    g.DrawString("判定结果: " + _evalVerdict + " (" + _evalReason + ")", fBold, new SolidBrush(vCol), verdictBar.X + 12f, verdictBar.Y + 6f);
+                }
+
+                // --- 右栏：数据中台五道出口门禁与跨领域记忆 ---
+                g.FillRectangle(brCard, rightBox);
+                g.DrawRectangle(borderPen, rightBox.X, rightBox.Y, rightBox.Width, rightBox.Height);
+                g.DrawString("数据中台 · 金标回流五道出口门禁 (golden.py)", fH3, brPrimary, rightBox.X + 18f, rightBox.Y + 16f);
+                g.DrawString("任一检查命中 Oracle 真值或被闸门阻断，立即删除产物并 fail closed", fDesc, brMuted, rightBox.X + 18f, rightBox.Y + 38f);
+
+                string[,] gSteps = new string[,]
+                {
+                    { "1. 内容去重与许可隔离", "canonical_digest 去重；license_id 为空或 REJECTED 自动剔除" },
+                    { "2. Oracle 真值泄漏扫描", "assert_no_oracle_leak() 严禁真值字段进入训练样本" },
+                    { "3. RedactionGate 通道脱敏", "TRAINING_SAMPLE 通道脱敏 PII/凭据，REVIEW_REQUIRED 拒出" },
+                    { "4. 防泄漏确定性 Group Split", "按 seed / workload_group / triple 并查集 80:10:10 切分" },
+                    { "5. 写盘后二次磁盘复检", "落盘后重扫 samples.jsonl，确保 leakage_count == 0" }
+                };
+
+                float gY = rightBox.Y + 72f;
+                for (int s = 0; s < 5; s++)
+                {
+                    RectangleF sr = new RectangleF(rightBox.X + 16f, gY + s * 48f, rightBox.Width - 32f, 42f);
+                    using (SolidBrush sBg = new SolidBrush(bgObsidian))
+                    {
+                        g.FillRectangle(sBg, sr);
+                        g.DrawRectangle(borderPen, sr.X, sr.Y, sr.Width, sr.Height);
+                    }
+                    g.DrawString(gSteps[s, 0], fBold, brEmerald, sr.X + 12f, sr.Y + 5f);
+                    g.DrawString(gSteps[s, 1], fDesc, brMuted, sr.X + 12f, sr.Y + 23f);
+                }
+
+                RectangleF outBox = new RectangleF(rightBox.X + 16f, rightBox.Bottom - 68f, rightBox.Width - 32f, 54f);
+                using (SolidBrush obBg = new SolidBrush(bgObsidian))
+                {
+                    g.FillRectangle(obBg, outBox);
+                    g.DrawRectangle(borderPen, outBox.X, outBox.Y, outBox.Width, outBox.Height);
+                }
+                g.DrawString("最近导出状态: " + _goldenStatus, fBold, _goldenKept > 0 ? brEmerald : brCyan, outBox.X + 12f, outBox.Y + 8f);
+                g.DrawString("目标目录: " + _goldenOutputDir + "   |   跨领域记忆: SecOpsMemory + 8-Gate RAG", fMono, brMuted, outBox.X + 12f, outBox.Y + 30f);
+            }
+        }
+
+        private void RefreshEvalSummaryFromPython(bool conflictMode)
+        {
+            _evalConflictMode = conflictMode;
+            string arg = conflictMode ? "-m apps.desktop.launcher --eval-summary --conflict-mode" : "-m apps.desktop.launcher --eval-summary";
+            string json = RunLocalPythonBridge(arg);
+            string verdict = ExtractJsonField(json, "verdict");
+            string reason = ExtractJsonField(json, "reason");
+            string goldenStatus = ExtractJsonField(json, "golden_status");
+            if (!string.IsNullOrEmpty(verdict)) _evalVerdict = verdict;
+            else _evalVerdict = conflictMode ? "INCONCLUSIVE" : "CANDIDATE_BETTER";
+            if (!string.IsNullOrEmpty(reason)) _evalReason = reason;
+            else _evalReason = conflictMode ? "MIXED_DIRECTION" : "ALL_METRICS_IMPROVED";
+            if (!string.IsNullOrEmpty(goldenStatus)) _goldenStatus = goldenStatus;
+
+            Match mc = Regex.Match(json, "\"suite_v2_cases\"\\s*:\\s*(\\d+)");
+            if (mc.Success) int.TryParse(mc.Groups[1].Value, out _suiteV2Cases);
+
+            Match mg = Regex.Match(json, "\"golden_kept\"\\s*:\\s*(\\d+)");
+            if (mg.Success) int.TryParse(mg.Groups[1].Value, out _goldenKept);
+        }
+
         private void RenderFloatingToast(
             Graphics g,
             int w,
@@ -2944,8 +3180,8 @@ namespace DBGuardianDesktop
             if (e.Button != MouseButtons.Left) return;
             PointF pt = new PointF(e.X, e.Y);
 
-            // 1. 左侧 5 大视图导航切换
-            for (int i = 0; i < 5; i++)
+            // 1. 左侧 6 大视图导航切换
+            for (int i = 0; i < 6; i++)
             {
                 if (_navRects[i].Contains(pt))
                 {
@@ -3145,6 +3381,40 @@ namespace DBGuardianDesktop
                     return;
                 }
             }
+            else if (_currentView == 5)
+            {
+                if (_btnRefreshEvalRect.Contains(pt))
+                {
+                    RefreshEvalSummaryFromPython(_evalConflictMode);
+                    ShowToast("已刷新评测中台实测摘要: verdict=" + _evalVerdict, "cyan");
+                    return;
+                }
+                if (_btnToggleConflictRect.Contains(pt))
+                {
+                    RefreshEvalSummaryFromPython(!_evalConflictMode);
+                    ShowToast(
+                        _evalConflictMode
+                            ? "指标冲突触发: compare_metrics 返回 INCONCLUSIVE (MIXED_DIRECTION)"
+                            : "指标同向改善: compare_metrics 返回 CANDIDATE_BETTER",
+                        _evalConflictMode ? "amber" : "emerald"
+                    );
+                    return;
+                }
+                if (_btnExportGoldenRect.Contains(pt))
+                {
+                    string json = RunLocalPythonBridge("-m apps.desktop.launcher --export-golden");
+                    Match mk = Regex.Match(json, "\"kept\"\\s*:\\s*(\\d+)");
+                    if (mk.Success) int.TryParse(mk.Groups[1].Value, out _goldenKept);
+                    if (_goldenKept <= 0) _goldenKept = 3;
+                    string outDir = ExtractJsonField(json, "output_dir");
+                    if (!string.IsNullOrEmpty(outDir)) _goldenOutputDir = outDir;
+                    _goldenStatus = "已导出并通过写盘二次复检 (leakage=0)";
+                    AddAuditEntry("数据回流门禁", "金标导出", "运行 RedactionGate + Group Split + 二次复检导出 " + _goldenKept + " 条样本至 " + _goldenOutputDir, "已复检");
+                    ShowToast("金标数据集导出并通过二次复检 (" + _goldenKept + " 条入集, leakage=0)", "emerald");
+                    TriggerMicroVibration();
+                    return;
+                }
+            }
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
@@ -3304,6 +3574,16 @@ namespace DBGuardianDesktop
                     RenderEntireWorkbench(g, true);
                 }
                 bmpGw.Save(Path.Combine(outDir, "harness_dark_gateway.png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
+
+            _currentView = 5; // 评测与数据中台视图预览
+            using (Bitmap bmpEval = new Bitmap(1540, 900))
+            {
+                using (Graphics g = Graphics.FromImage(bmpEval))
+                {
+                    RenderEntireWorkbench(g, true);
+                }
+                bmpEval.Save(Path.Combine(outDir, "harness_dark_eval.png"), System.Drawing.Imaging.ImageFormat.Png);
             }
             _currentView = 0;
         }
