@@ -1,19 +1,19 @@
-# DBGuardian
+# AegisForge
 
-**企业级零信任智能安全与自进化修复平台（Zero-Trust AI Harness & Multi-Agent Security Ops）**
+**企业级零信任全栈安全与多 Agent 自进化修复平台（Zero-Trust AI Harness & Multi-Agent Security Ops）**
 
 [![Tests](https://img.shields.io/badge/Unit_Tests-1,970_passed-10b981.svg)](#五测试与验证)
 [![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#四快速开始)
-[![Platform](https://img.shields.io/badge/Desktop-Windows_Native_EXE-6366f1.svg)](#三原生桌面工作台与特色交互)
+[![Platform](https://img.shields.io/badge/Desktop-AegisForge.exe-6366f1.svg)](#三原生桌面工作台与特色交互)
 [![Architecture](https://img.shields.io/badge/Architecture-4_Layers_%C2%B7_10_Modules-f59e0b.svg)](#二四层十模块架构)
 
-> 面向企业级异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）的**零信任漏洞探测、AST 级出站双向可逆脱敏、双轨沙箱 Harness 验证、画布内长按 HITL 人工审批及受控自主进化平台**，并面向**后端业务代码安全审计与多 Agent 协同调度（Multi-Agent Collaboration）**持续演进。
+> 面向企业级异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）与后端服务代码的**零信任漏洞探测、AST 级出站双向可逆脱敏、双轨沙箱 Harness 验证、画布内长按 HITL 人工审批及受控自主进化平台**，持续演进**后端代码安全审计与多 Agent 协同调度（Multi-Agent Collaboration）**。
 
 ---
 
 ## 目录
 
-- [一、为什么需要 DBGuardian？](#一为什么需要-dbguardian)
+- [一、为什么需要 AegisForge？](#一为什么需要-aegisforge)
 - [二、四层十模块架构](#二四层十模块架构)
 - [三、原生桌面工作台与特色交互](#三原生桌面工作台与特色交互)
 - [四、快速开始](#四快速开始)
@@ -23,9 +23,9 @@
 
 ---
 
-## 一、为什么需要 DBGuardian？
+## 一、为什么需要 AegisForge？
 
-将大模型 Agent 引入企业生产环境（尤其是数据库与核心后端服务），最大的障碍不是模型推理能力不足，而是**数据合规出域、概率性幻觉、长事务锁雪崩与不可逆变更风险**。DBGuardian 采用 **「胖控制面（内网集群）+ 瘦桌面端（零凭据安全工作台）」** 架构与 **Harness Engineering（护栏工程）** 设计，确保：
+将大模型 Agent 引入企业生产环境（尤其是数据库与核心后端服务），最大的障碍不是模型推理能力不足，而是**数据合规出域、概率性幻觉、长事务锁雪崩与不可逆变更风险**。AegisForge 采用 **「胖控制面（内网集群）+ 瘦桌面端（零凭据安全工作台）」** 架构与 **Harness Engineering（护栏工程）** 设计，确保：
 
 1. **隐私不出域**：外发外部模型 API 前，基于 SQL 词法/AST 节点精准替换真实表名、字段名、IP 与 PII 敏感值；映射表由 `Fernet / KMS` 加密按 `workflow_run_id` 持久化，返回 SQL 先做本地语法校验再精准还原，闭环立即销毁。
 2. **零幻觉上生产**：采用**双轨沙箱验证（Harness）**——轨道 1 在同版本瞬时容器/温备池中先跑 PoC 消除误报，再 Dry-Run 修复与回滚脚本并回放脱敏业务 SQL；轨道 2 只读采集生产表行数、体积与 `>30s` 活跃长事务，自动拦截 MDL 锁雪崩风险。
@@ -71,7 +71,7 @@ flowchart TB
 
 ## 三、原生桌面工作台与特色交互
 
-项目提供**零浏览器依赖**的纯原生 Windows 桌面客户端 `DBGuardian.exe`（由 `scripts/build_desktop_app.ps1` 本地编译生成；源码 [apps/desktop/NativeShell.cs](apps/desktop/NativeShell.cs) + 本地引擎桥接 [apps/desktop/launcher.py](apps/desktop/launcher.py)），包含五大核心视图：
+项目提供**零浏览器依赖**的纯原生 Windows 桌面客户端 `AegisForge.exe`（由 `scripts/build_desktop_app.ps1` 本地编译生成；源码 [apps/desktop/NativeShell.cs](apps/desktop/NativeShell.cs) + 本地引擎桥接 [apps/desktop/launcher.py](apps/desktop/launcher.py)），包含五大核心视图：
 
 | 视图 | 对应模块 | 核心功能 |
 | --- | --- | --- |
@@ -93,9 +93,9 @@ flowchart TB
 
 ```powershell
 # 1. 直接双击根目录下的桌面客户端
-.\DBGuardian.exe
+.\AegisForge.exe
 
-# 2. 若修改了界面源码，一条命令重新初始化主密钥并打包生成 DBGuardian.exe 与 dist\DBGuardian.exe
+# 2. 若修改了界面源码，一条命令重新初始化主密钥并打包生成 AegisForge.exe 与 dist\AegisForge.exe
 powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1
 ```
 

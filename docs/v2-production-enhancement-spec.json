@@ -21,7 +21,7 @@
         "security_boundary": "所有数据库生产凭据、脱敏映射表与真实业务数据 100% 留存内网控制面服务端"
       },
       "thin_desktop_client": {
-        "runtime": "原生桌面工作台 (Windows Native GDI+ DBGuardian.exe / Tauri / Electron)",
+        "runtime": "原生桌面工作台 (Windows Native GDI+ AegisForge.exe / Tauri / Electron)",
         "transport": "mTLS / HTTPS 仅与控制面 API 通信",
         "responsibilities": [
           "8 节点可拖拽 S 型 DAG 画布渲染与实时流式日志 (Live Stream) 展示",
@@ -272,8 +272,8 @@
     "target_file": "apps/desktop/NativeShell.cs",
     "build_script": "scripts/build_desktop_app.ps1",
     "output_binaries": [
-      "DBGuardian.exe",
-      "dist/DBGuardian.exe"
+      "AegisForge.exe",
+      "dist/AegisForge.exe"
     ],
     "branding_policy": "无商业品牌前缀、无虚拟人名；统一使用「漏洞检测与自进化修复 · 企业级数据库安全防御平台」与纯角色标识「高级 DBA (DBA) / 安全工程师 (SEC) / 合规审计员 (AUD)」",
     "five_views": [
@@ -345,7 +345,7 @@
         "1. 在顶栏新增「⚡ 极速排障模式」开关：开启时关闭 1.4s 圆心扩散与过渡动效，实现 0ms 瞬时响应；关闭时保留 1.4s SmoothStep 圆心扩散主题切换。",
         "2. 在视图 1 右侧检视器中展示 lock_wait_timeout=3s 熔断注入 SQL、双轨验证报告（轨道 1 分层池化沙箱 + 轨道 2 生产只读长事务预检）以及 AST 级 KMS 持久化脱敏对比。",
         "3. 在视图 5（审计日志）顶部新增「24~72h 延迟观察期 SIEM 监控横幅」与「一键紧急恢复 (1-Click Restore)」按钮。",
-        "4. 运行 powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1 重新编译 DBGuardian.exe 与 dist/DBGuardian.exe。"
+        "4. 运行 powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1 重新编译 AegisForge.exe 与 dist/AegisForge.exe。"
       ]
     },
     {
@@ -367,7 +367,7 @@
       "轨道 2 生产只读预检检测到 >30s 活跃长事务时自动阻断执行并挂起变更窗口",
       "下发生产的修复 SQL 100% 包含 lock_wait_timeout / lock_timeout 会话级超时保护与强制 Rollback 脚本",
       "24~72h 延迟观察期接收到 SIEM 权限报错时可一键触发 1-Click Restore 并写入 WORM 哈希链",
-      "瘦桌面端 DBGuardian.exe 支持「1.4s 慢速圆心扩散」与「极速排障模式（0ms 瞬切）」双模式一键切换"
+      "瘦桌面端 AegisForge.exe 支持「1.4s 慢速圆心扩散」与「极速排障模式（0ms 瞬切）」双模式一键切换"
     ]
   }
 }

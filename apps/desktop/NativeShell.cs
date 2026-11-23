@@ -12,9 +12,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("DBGuard AI Harness Desktop")]
-[assembly: AssemblyDescription("DBGuard AI Harness · 企业级数据库漏洞检测与自进化修复平台")]
-[assembly: AssemblyProduct("DBGuardian")]
+[assembly: AssemblyTitle("AegisForge")]
+[assembly: AssemblyDescription("AegisForge · 企业级全栈安全检测与多 Agent 自进化修复平台")]
+[assembly: AssemblyProduct("AegisForge")]
 [assembly: AssemblyVersion("2.4.0.0")]
 
 namespace DBGuardianDesktop
@@ -183,7 +183,7 @@ namespace DBGuardianDesktop
         public MainOpsForm(string repoRoot)
         {
             _repoRoot = repoRoot;
-            Text = "企业级数据库漏洞检测与自进化修复平台 (原生本地桌面端 v2.4)";
+            Text = "AegisForge · 企业级漏洞检测与自进化修复平台 (原生本地桌面端 v2.4)";
             Size = new Size(1540, 940);
             MinimumSize = new Size(1260, 780);
             StartPosition = FormStartPosition.CenterScreen;

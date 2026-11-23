@@ -1,9 +1,9 @@
-"""DBGuardian 独立桌面端启动器与本地引擎桥接器（原生桌面客户端 + 本地加密 BYOK + 实时脱敏诊断）。
+"""AegisForge 独立桌面端启动器与本地引擎桥接器（原生桌面客户端 + 本地加密 BYOK + 实时脱敏诊断）。
 
 功能：
 1. 自动检查并初始化 `.env` 与 `DG_SECRET_MASTER_KEY`（Fernet 密钥），开箱即用支持 BYOK；
-2. 提供本地 CLI 桥接（`--save-byok` / `--run-diagnose`），供原生 Windows 桌面软件 `DBGuardian.exe` 直接调用，无需跳转任何 Web 浏览器；
-3. 若直接通过 Python 启动（`python -m apps.desktop.launcher`），默认拉起原生 `DBGuardian.exe` 桌面程序。
+2. 提供本地 CLI 桥接（`--save-byok` / `--run-diagnose` / `--export-sarif`），供原生 Windows 桌面软件 `AegisForge.exe` 直接调用，无需跳转任何 Web 浏览器；
+3. 若直接通过 Python 启动（`python -m apps.desktop.launcher`），默认拉起原生 `AegisForge.exe` 桌面程序。
 """
 
 from __future__ import annotations
@@ -299,7 +299,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8") + b"\n")
         return 0
 
-    native_exe = ROOT / "DBGuardian.exe"
+    native_exe = ROOT / "AegisForge.exe"
+    if not native_exe.is_file():
+        native_exe = ROOT / "DBGuardian.exe"
     if os.name == "nt" and not args.web and not args.no_browser and native_exe.is_file():
         subprocess.Popen([str(native_exe)], cwd=str(ROOT))
         return 0
