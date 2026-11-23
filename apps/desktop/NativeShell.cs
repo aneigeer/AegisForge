@@ -87,6 +87,16 @@ namespace DBGuardianDesktop
         public RectangleF ActionBtnRect;
     }
 
+    // 多 Agent 协作角色徽章（纯职能标识，不含任何虚拟人名）
+    public class AgentBadge
+    {
+        public string Id;
+        public string RoleLabel;
+        public string FunctionText;
+        public string State;   // idle | active | verify | rejected | passed | escalated
+        public int Round;
+    }
+
     public class MainOpsForm : Form
     {
         [DllImport("user32.dll")]
@@ -129,6 +139,15 @@ namespace DBGuardianDesktop
         // VIEW 1: 工作流编排 DAG 与右侧检视器状态
         private readonly List<DagNode> _nodes = new List<DagNode>();
         private readonly List<DagEdge> _edges = new List<DagEdge>();
+
+        // 多 Agent 协作：角色徽章 + Critic 自愈轮次（硬上限 3 轮）
+        private readonly List<AgentBadge> _agents = new List<AgentBadge>();
+        private int _criticRound = 0;
+        private int _criticMaxRounds = 3;
+        private string _criticVerdict = "";
+        private int _selfCorrectionTotal = 0;
+        private RectangleF _agentStripRect;
+
         private int _selectedNodeId = 6; // 默认选中 [HITL 审批]
         private int _hitlActiveTab = 0;  // 0=修复SQL, 1=Rollback回滚, 2=沙箱报告, 3=脱敏对比
         private readonly RectangleF[] _hitlTabRects = new RectangleF[4];
@@ -322,6 +341,17 @@ namespace DBGuardianDesktop
                 ScoreLevel = 1,
                 ActionText = "升级评估"
             });
+
+            // 5 类核心 Agent 角色徽章（纯职能标识：总控调度 / 研判 / 领域专家 / 红队验证 / 进化蒸馏）
+            _agents.Clear();
+            _agents.Add(new AgentBadge { Id = "AGENT_SUPERVISOR", RoleLabel = "总控调度", FunctionText = "DAG 编排", State = "idle", Round = 0 });
+            _agents.Add(new AgentBadge { Id = "AGENT_TRIAGE", RoleLabel = "研判定级", FunctionText = "P0~P3 工单", State = "idle", Round = 0 });
+            _agents.Add(new AgentBadge { Id = "AGENT_DB_SPECIALIST", RoleLabel = "DB 专家", FunctionText = "三层修复+Rollback", State = "idle", Round = 0 });
+            _agents.Add(new AgentBadge { Id = "AGENT_CRITIC", RoleLabel = "Critic 红队", FunctionText = "沙箱对抗验证", State = "idle", Round = 0 });
+            _agents.Add(new AgentBadge { Id = "AGENT_EVOLUTION", RoleLabel = "进化蒸馏", FunctionText = "Shadow Mode", State = "idle", Round = 0 });
+            _criticRound = 0;
+            _criticVerdict = "";
+            _selfCorrectionTotal = 0;
 
             // 4 条隐私脱敏规则
             _maskingRules.Clear();
@@ -658,6 +688,7 @@ namespace DBGuardianDesktop
             _workflowPillColor = "cyan";
             AddAuditEntry("高级 DBA", "人工审批", "长按批准 MySQL-Prod-Order 最小权限收敛变更单 #CHG-2026-8841", "已批准");
             ShowToast("审批已通过！正在安全执行生产变更并开启回滚观测...", "emerald");
+            SetAgentState("AGENT_EVOLUTION", "active", 0);
             _postApproveTicks = 1;
         }
 
@@ -679,6 +710,7 @@ namespace DBGuardianDesktop
             _workflowPillColor = "rose";
             AddAuditEntry("高级 DBA", "人工审批", "长按驳回 MySQL-Prod-Order 变更单 #CHG-2026-8841，退回人工复核", "已驳回");
             ShowToast("已长按驳回本次变更，下游执行已安全终止", "amber");
+            SetAgentState("AGENT_EVOLUTION", "idle", 0);
         }
 
         private void UpdatePostApproveStateMachine()
@@ -731,6 +763,7 @@ namespace DBGuardianDesktop
                 };
                 _workflowPillText = "全流程闭环完成";
                 _workflowPillColor = "emerald";
+                SetAgentState("AGENT_EVOLUTION", "passed", 0);
                 AddAuditEntry("Evolution-Engine", "规则蒸馏", "从本次修复沉淀 1 条新规则至影子测试队列 (" + _activeEvoVersion + "-shadow)", "影子测试");
                 ShowToast("生产修复已完成！自主进化引擎已将新规则送入影子测试队列", "indigo");
                 _postApproveTicks = 0;
@@ -745,7 +778,7 @@ namespace DBGuardianDesktop
             _postApproveTicks = 0;
             _approveProgress = 0f;
             _rejectProgress = 0f;
-
+            ResetAgents();
             foreach (DagNode n in _nodes)
             {
                 if (n.Id == 8 && !_selfEvolutionEnabled)
@@ -792,6 +825,50 @@ namespace DBGuardianDesktop
                 }
             }
 
+            // 多 Agent 角色接力：总控 -> 研判 -> DB 专家 -> Critic 对抗验证（含 1 次自愈打回）
+            if (_simStepTicks == 6)
+            {
+                SetAgentState("AGENT_SUPERVISOR", "active", 0);
+            }
+            else if (_simStepTicks == 14)
+            {
+                SetAgentState("AGENT_SUPERVISOR", "passed", 0);
+                SetAgentState("AGENT_TRIAGE", "active", 0);
+            }
+            else if (_simStepTicks == 30)
+            {
+                SetAgentState("AGENT_TRIAGE", "passed", 0);
+                SetAgentState("AGENT_DB_SPECIALIST", "active", 1);
+            }
+            else if (_simStepTicks == 101)
+            {
+                SetAgentState("AGENT_CRITIC", "active", 1);
+                _criticRound = 1;
+                _criticVerdict = "";
+            }
+            else if (_simStepTicks == 107)
+            {
+                // Critic 第 1 轮打回：生产只读预检发现长事务，要求改期至低峰窗口
+                SetAgentState("AGENT_CRITIC", "rejected", 1);
+                SetAgentState("AGENT_DB_SPECIALIST", "active", 2);
+                _criticVerdict = "REJECTED";
+                _selfCorrectionTotal = 1;
+                AddAuditEntry("Critic-Agent", "对抗验证", "第 1 轮沙箱 Dry-Run 命中 >30s 活跃长事务，打回 DB 专家 Agent 自愈修正", "已打回");
+            }
+            else if (_simStepTicks == 114)
+            {
+                SetAgentState("AGENT_DB_SPECIALIST", "passed", 2);
+                SetAgentState("AGENT_CRITIC", "active", 2);
+                _criticRound = 2;
+                _criticVerdict = "";
+            }
+            else if (_simStepTicks == 121)
+            {
+                SetAgentState("AGENT_CRITIC", "passed", 2);
+                _criticVerdict = "PASSED";
+                AddAuditEntry("Critic-Agent", "对抗验证", "第 2 轮沙箱复测通过：改期策略消除 MDL 锁风险，回滚可逆验证 2/2", "已放行");
+            }
+
             if (_simStepTicks == 132)
             {
                 DagNode n6 = FindNode(6);
@@ -812,7 +889,7 @@ namespace DBGuardianDesktop
                 _isSimulating = false;
                 _workflowPillText = "等待 HITL 审批";
                 _workflowPillColor = "amber";
-                ShowToast("沙箱 Harness 验证通过，流程已在 HITL 节点挂起等待长按审批", "cyan");
+                ShowToast("Critic 第 2 轮放行，流程已在 HITL 节点挂起等待长按审批", "cyan");
             }
         }
 
@@ -1497,9 +1574,12 @@ namespace DBGuardianDesktop
                 g.DrawString(_workflowPillText, new Font("Microsoft YaHei UI", 7.6f, FontStyle.Bold), brPillFg, pRect, sf);
             }
 
+            // 多 Agent 协作角色徽章 + Critic 自愈轮次（StateGraph 拓扑可视化）
+            RenderAgentStrip(g, canvasRect, dark, bgCard, borderCol, fgPrimary, fgMuted, cCyan, cIndigo, cEmerald, cAmber, cRose);
+
             // 计算 DAG 画布偏移与节点尺寸
             float dagOriginX = canvasRect.X + 24f;
-            float dagOriginY = canvasRect.Y + 52f;
+            float dagOriginY = canvasRect.Y + 136f;
             float nodeW = 228f;
             float nodeH = 106f;
 
@@ -1667,6 +1747,161 @@ namespace DBGuardianDesktop
             x += 92f;
         }
 
+        // =========================================================================
+        // 多 Agent 协作可视化：5 类角色徽章 + Critic 自愈轮次进度（硬上限 3 轮）
+        // =========================================================================
+        private Color AgentStateColor(string state, Color cCyan, Color cIndigo, Color cEmerald, Color cAmber, Color cRose, Color fgMuted)
+        {
+            if (state == "active") return cCyan;
+            if (state == "verify") return cIndigo;
+            if (state == "rejected") return cRose;
+            if (state == "passed") return cEmerald;
+            if (state == "escalated") return cAmber;
+            return fgMuted;
+        }
+
+        private string AgentStateText(string state)
+        {
+            if (state == "active") return "执行中";
+            if (state == "verify") return "验证中";
+            if (state == "rejected") return "已打回";
+            if (state == "passed") return "已放行";
+            if (state == "escalated") return "转人工";
+            return "待命";
+        }
+
+        private string CriticVerdictText()
+        {
+            if (_criticVerdict == "PASSED") return "沙箱放行";
+            if (_criticVerdict == "REJECTED") return "打回自愈";
+            if (_criticVerdict == "EXHAUSTED") return "超限转人工";
+            return "待命";
+        }
+
+        private void SetAgentState(string id, string state, int round)
+        {
+            for (int i = 0; i < _agents.Count; i++)
+            {
+                if (_agents[i].Id == id)
+                {
+                    _agents[i].State = state;
+                    if (round > 0) _agents[i].Round = round;
+                    return;
+                }
+            }
+        }
+
+        private void ResetAgents()
+        {
+            for (int i = 0; i < _agents.Count; i++)
+            {
+                _agents[i].State = "idle";
+                _agents[i].Round = 0;
+            }
+            _criticRound = 0;
+            _criticVerdict = "";
+            _selfCorrectionTotal = 0;
+        }
+
+        private void RenderAgentStrip(
+            Graphics g,
+            RectangleF canvasRect,
+            bool dark,
+            Color bgCard,
+            Color borderCol,
+            Color fgPrimary,
+            Color fgMuted,
+            Color cCyan,
+            Color cIndigo,
+            Color cEmerald,
+            Color cAmber,
+            Color cRose)
+        {
+            RectangleF strip = new RectangleF(canvasRect.X + 16f, canvasRect.Y + 52f, canvasRect.Width - 32f, 76f);
+            _agentStripRect = strip;
+
+            using (SolidBrush brBg = new SolidBrush(Color.FromArgb(dark ? 210 : 242, bgCard)))
+            using (Pen stripPen = new Pen(borderCol, 1f))
+            using (Font fTitle = new Font("Microsoft YaHei UI", 7.8f, FontStyle.Bold))
+            using (Font fTiny = new Font("Microsoft YaHei UI", 6.9f, FontStyle.Regular))
+            using (Font fRole = new Font("Microsoft YaHei UI", 7.1f, FontStyle.Bold))
+            using (Font fState = new Font("Microsoft YaHei UI", 6.8f, FontStyle.Regular))
+            using (Font fMono = new Font("Consolas", 7.4f, FontStyle.Bold))
+            using (SolidBrush brPrimary = new SolidBrush(fgPrimary))
+            using (SolidBrush brMuted = new SolidBrush(fgMuted))
+            {
+                g.FillRectangle(brBg, strip);
+                g.DrawRectangle(stripPen, strip.X, strip.Y, strip.Width, strip.Height);
+
+                g.DrawString("多 Agent 协作", fTitle, brPrimary, strip.X + 10f, strip.Y + 7f);
+                g.DrawString("StateGraph DAG", fTiny, brMuted, strip.X + 10f, strip.Y + 21f);
+                g.DrawString("确定性编排", fTiny, brMuted, strip.X + 10f, strip.Y + 32f);
+
+                float x = strip.X + 88f;
+                float gap = 5f;
+                int count = _agents.Count > 0 ? _agents.Count : 1;
+                float badgeW = (strip.Width - 96f - gap * (count - 1)) / count;
+
+                for (int i = 0; i < _agents.Count; i++)
+                {
+                    AgentBadge agent = _agents[i];
+                    Color st = AgentStateColor(agent.State, cCyan, cIndigo, cEmerald, cAmber, cRose, fgMuted);
+                    RectangleF br = new RectangleF(x, strip.Y + 7f, badgeW, 31f);
+                    using (SolidBrush bBg = new SolidBrush(Color.FromArgb(agent.State == "idle" ? 16 : 34, st)))
+                    using (Pen bPen = new Pen(Color.FromArgb(agent.State == "idle" ? 70 : 150, st), 1f))
+                    using (SolidBrush bDot = new SolidBrush(st))
+                    using (SolidBrush bRole = new SolidBrush(agent.State == "idle" ? fgMuted : fgPrimary))
+                    {
+                        g.FillRectangle(bBg, br);
+                        g.DrawRectangle(bPen, br.X, br.Y, br.Width, br.Height);
+                        g.FillEllipse(bDot, br.X + 5f, br.Y + 6f, 5.5f, 5.5f);
+                        g.DrawString(agent.RoleLabel, fRole, bRole, br.X + 14f, br.Y + 2.5f);
+
+                        string stateText = AgentStateText(agent.State);
+                        if (agent.Round > 0)
+                        {
+                            stateText = stateText + " R" + agent.Round;
+                        }
+                        g.DrawString(stateText, fState, bDot, br.X + 14f, br.Y + 17f);
+                    }
+                    x += badgeW + gap;
+                }
+
+                // 第二行：Critic 自愈轮次进度（每格代表一轮，硬上限 3 轮）
+                float y2 = strip.Y + 46f;
+                g.DrawString("Critic 自愈轮次", fTiny, brMuted, strip.X + 10f, y2 + 4f);
+                float sx = strip.X + 88f;
+                for (int s = 0; s < _criticMaxRounds; s++)
+                {
+                    RectangleF seg = new RectangleF(sx, y2 + 3f, 20f, 9f);
+                    bool used = s < _criticRound;
+                    bool passedSeg = used && (s == _criticRound - 1) && _criticVerdict == "PASSED";
+                    Color segCol = passedSeg ? cEmerald : (used ? cRose : fgMuted);
+                    using (SolidBrush segBg = new SolidBrush(used ? Color.FromArgb(120, segCol) : Color.FromArgb(dark ? 26 : 210, fgMuted)))
+                    using (Pen segPen = new Pen(Color.FromArgb(used ? 200 : 90, segCol), 1f))
+                    {
+                        g.FillRectangle(segBg, seg);
+                        g.DrawRectangle(segPen, seg.X, seg.Y, seg.Width, seg.Height);
+                    }
+                    sx += 24f;
+                }
+
+                string roundText = "第 " + _criticRound + "/" + _criticMaxRounds + " 轮 · " + CriticVerdictText();
+                if (_selfCorrectionTotal > 0)
+                {
+                    roundText = roundText + " · 已自愈 " + _selfCorrectionTotal + " 次";
+                }
+                g.DrawString(roundText, fMono, brPrimary, sx + 8f, y2 + 1f);
+
+                StringFormat sfRight = new StringFormat { Alignment = StringAlignment.Far };
+                if (strip.Width > 720f)
+                {
+                    g.DrawString("硬上限 3 轮 · 超限挂起转人工 HITL 并写入 WORM", fTiny, brMuted,
+                        new RectangleF(strip.X + strip.Width - 330f, y2 + 3f, 320f, 14f), sfRight);
+                }
+            }
+        }
+
         private void RenderInspectorDrawer(
             Graphics g,
             RectangleF rect,
@@ -1731,14 +1966,26 @@ namespace DBGuardianDesktop
 
                     g.DrawString("MySQL secure_file_priv 缺陷 + 过度授权", fTitle, brPrimary, rect.X + 16f, rect.Y + 46f);
                     g.DrawString("目标: MySQL-Prod-Order · 暴露面: 公网跳板 / 含 PII 核心表", fSub, brMuted, rect.X + 16f, rect.Y + 70f);
-                    g.DrawLine(divPen, rect.Left, rect.Y + 96f, rect.Right, rect.Y + 96f);
+
+                    // 多 Agent 协作链 + Critic 自愈轮次（角色徽章与轮次始终可见）
+                    RectangleF chainRect = new RectangleF(rect.X + 16f, rect.Y + 90f, rect.Width - 32f, 24f);
+                    using (SolidBrush chainBg = new SolidBrush(Color.FromArgb(24, cIndigo)))
+                    using (Pen chainPen = new Pen(Color.FromArgb(90, cIndigo), 1f))
+                    {
+                        g.FillRectangle(chainBg, chainRect);
+                        g.DrawRectangle(chainPen, chainRect.X, chainRect.Y, chainRect.Width, chainRect.Height);
+                        string chainText = "总控 → 研判 → DB 专家 → Critic 第 " + Math.Max(1, _criticRound) + "/" + _criticMaxRounds
+                            + " 轮 " + CriticVerdictText() + " → HITL";
+                        g.DrawString(chainText, fMono, brIndigo, chainRect.X + 8f, chainRect.Y + 4f);
+                    }
+                    g.DrawLine(divPen, rect.Left, rect.Y + 122f, rect.Right, rect.Y + 122f);
 
                     // 4 个切换 Tab: 修复 SQL | Rollback 回滚 | 沙箱报告 | 脱敏对比
                     string[] tabs = new string[] { "修复 SQL", "Rollback 回滚", "双轨验证", "脱敏对比" };
                     float tabW = (rect.Width - 24f) / 4f;
                     for (int t = 0; t < 4; t++)
                     {
-                        RectangleF tr = new RectangleF(rect.X + 12f + t * tabW, rect.Y + 98f, tabW, 34f);
+                        RectangleF tr = new RectangleF(rect.X + 12f + t * tabW, rect.Y + 124f, tabW, 34f);
                         _hitlTabRects[t] = tr;
                         bool isAct = (_hitlActiveTab == t);
                         StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
@@ -1751,10 +1998,9 @@ namespace DBGuardianDesktop
                             }
                         }
                     }
-                    g.DrawLine(divPen, rect.Left, rect.Y + 132f, rect.Right, rect.Y + 132f);
+                    g.DrawLine(divPen, rect.Left, rect.Y + 158f, rect.Right, rect.Y + 158f);
 
-                    // Tab 内容区
-                    float cy = rect.Y + 146f;
+                    float cy = rect.Y + 172f;
                     if (_hitlActiveTab == 0)
                     {
                         // 3 项评估卡：锁表风险 / 会话级锁超时注入 / 分级回滚保护

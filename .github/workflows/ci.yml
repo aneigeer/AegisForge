@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -75,6 +77,8 @@ jobs:
       DG_CONTROL_DSN: mysql://dg_ctl:CHANGE_ME_CI_CONTROL@127.0.0.1:3306/dg_system?charset=utf8mb4
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"

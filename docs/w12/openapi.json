@@ -173,6 +173,96 @@
         "title": "ExecuteEvalBody",
         "type": "object"
       },
+      "FindingPayload": {
+        "additionalProperties": false,
+        "description": "报告用发现项：刻意**不含** evidence，避免未脱敏载荷外带。",
+        "properties": {
+          "asset_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "base_cvss": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Base Cvss",
+            "type": "number"
+          },
+          "category": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "cve_id": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cve Id"
+          },
+          "domain": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "finding_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "location": {
+            "default": "",
+            "maxLength": 512,
+            "title": "Location",
+            "type": "string"
+          },
+          "rule_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "suppressed_as_noise": {
+            "default": false,
+            "title": "Suppressed As Noise",
+            "type": "boolean"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "asset_id",
+          "domain",
+          "category",
+          "rule_id",
+          "title",
+          "base_cvss"
+        ],
+        "title": "FindingPayload",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -237,6 +327,109 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "ProposalPayload": {
+        "additionalProperties": false,
+        "description": "提案摘要：只用于回填审批摘要、回滚状态与跨栈引用。",
+        "properties": {
+          "asset_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "code_refs": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Code Refs",
+            "type": "array"
+          },
+          "confidence": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "domain": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "finding_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "impact": {
+            "additionalProperties": true,
+            "title": "Impact",
+            "type": "object"
+          },
+          "mitigation": {
+            "default": "",
+            "maxLength": 4096,
+            "title": "Mitigation",
+            "type": "string"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "plugin_id": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Plugin Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "rollback": {
+            "additionalProperties": true,
+            "title": "Rollback",
+            "type": "object"
+          },
+          "round": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Round",
+            "type": "integer"
+          },
+          "standard_fix": {
+            "default": "",
+            "maxLength": 65536,
+            "title": "Standard Fix",
+            "type": "string"
+          },
+          "upgrade_path": {
+            "default": "",
+            "maxLength": 4096,
+            "title": "Upgrade Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "finding_id",
+          "asset_id",
+          "domain"
+        ],
+        "title": "ProposalPayload",
         "type": "object"
       },
       "ProviderCreate": {
@@ -634,6 +827,38 @@
           "model_name"
         ],
         "title": "RunBody",
+        "type": "object"
+      },
+      "SarifExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingPayload"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Findings",
+            "type": "array"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalPayload"
+            },
+            "maxItems": 500,
+            "title": "Proposals",
+            "type": "array"
+          },
+          "run": {
+            "additionalProperties": true,
+            "title": "Run",
+            "type": "object"
+          }
+        },
+        "required": [
+          "findings"
+        ],
+        "title": "SarifExportRequest",
         "type": "object"
       },
       "SuiteBody": {
@@ -3233,6 +3458,70 @@
         "summary": "Test Provider",
         "tags": [
           "model-providers"
+        ]
+      }
+    },
+    "/v1/secops/plugins": {
+      "get": {
+        "description": "返回业务域插件能力矩阵（对接插件市场 / SOAR 资产发现）。",
+        "operationId": "list_plugins_v1_secops_plugins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Plugins V1 Secops Plugins Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Plugins",
+        "tags": [
+          "secops"
+        ]
+      }
+    },
+    "/v1/secops/sarif": {
+      "post": {
+        "description": "渲染跨栈 SARIF v2.1.0（同步返回，不落盘）。",
+        "operationId": "export_sarif_v1_secops_sarif_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SarifExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Sarif",
+        "tags": [
+          "secops"
         ]
       }
     },

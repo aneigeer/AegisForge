@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 import secrets
 
 from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from core.errors import ConfigError
 from database.mysql.dsn import DsnParseError, MysqlDsn, parse_mysql_dsn
@@ -95,10 +95,23 @@ class Settings(BaseSettings):
     secret_master_key: SecretStr | None = None
     # SSRF：允许 http（仅 dev）与显式 allowlist 主机（运维声明，不自动放行私网）。
     byok_allow_http: bool = False
-    byok_allowed_hosts: tuple[str, ...] = ()
+    byok_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = ()
     # 每租户默认配额（None = 不限；可按租户在供应商记录外另行覆盖，当前取全局默认）。
     byok_max_calls_per_task: int | None = None
     byok_max_tokens_per_task: int | None = None
+
+    @field_validator("byok_allowed_hosts", mode="before")
+    @classmethod
+    def _blank_allowed_hosts_is_empty(cls, value: object) -> object:
+        """空串/None 视为空白名单；逗号分隔字符串拆为 tuple，避免 .env 空值解析失败。"""
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return ()
+            return tuple(part.strip() for part in text.split(",") if part.strip())
+        return value
 
     # ---- P3-T2：任务后知识沉淀 --------------------------------
     # 默认关闭：开启后每次诊断结束会生成一条 PROPOSED 草稿（仍需两级人工确认才可检索）。

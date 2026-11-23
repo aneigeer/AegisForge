@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-23
+
+多智能体协作（Multi-Agent SecOps）与多业务域插件化架构。
+
+### Added
+
+- 业务域插件 SDK：`DomainProbe` / `DomainMasker` / `DomainSandboxHarness` / `DomainRollbackExecutor` 四大契约，装配期完整性校验 fail closed。
+- 确定性 StateGraph 状态机：节点预算、节点访问上限、`max_self_correction_rounds = 3` 图级别硬熔断、HITL 挂起快照与精确续跑。
+- 五类核心 Agent：总控调度、研判定级、领域专家（DB / K8s / Host / AppSec）、Critic 红队审查、自主进化蒸馏。
+- Critic 对抗自愈闭环：沙箱打回 -> 结构化失败码 -> 专家自愈重提交 -> 放行/超限转人工，超限事件写入 WORM。
+- 多模态隐私网关：SQL AST / K8s YAML / 源码与 HTTP / 自由文本按格式路由，复用 Fernet 信封加密映射与结构校验。
+- 业务域插件：database（复用 M02~M06）、k8s（Manifest 审计 + vCluster 沙箱 + 声明式回退）、host（基线 + MicroVM + 逆向 Playbook）、appsec（SAST/SCA + 代码 Patch + 联合 DB 加固）。
+- 统一沙箱调度器：瞬时容器 / 温备池 / vCluster / MicroVM / 流量回放，配额隔离与 TTL 强制回收。
+- 跨领域共享记忆库：租户隔离、跨域检索、入库拒密、资产拓扑与变更窗口沉淀。
+- 跨栈 SARIF v2.1.0：同一报告内同时承载 `db://` 与 `file://#L` 位置。
+- 报告 API：`POST /v1/secops/sarif`（只读渲染、不落盘、拒绝 `evidence` 字段）与 `GET /v1/secops/plugins`（插件能力矩阵）。
+- 桌面端新增多 Agent 角色徽章与 Critic 自愈轮次可视化（`AegisForge.exe`）。
+
+### Security
+
+- 插件不持有任何凭据；MCP 工具参数禁止携带原始证据/凭据，审计副本按密钥名打码。
+- 生产写动作只能经 `DomainRollbackExecutor`（HITL 审批摘要 + 超时熔断 + 回滚计划就绪）。
+- 记忆库拒绝含明文凭据的内容；AUDITOR 角色只读。
+
 ## [2.0.0] - 2026-11-23
 
 首个公开的技术预览版本（TECH_PREVIEW）。

@@ -29,6 +29,7 @@ from apps.api.routes.adapters import router as adapters_router
 from apps.api.routes.eval import router as eval_router
 from apps.api.routes.knowledge import router as knowledge_router
 from apps.api.routes.model_providers import router as model_providers_router
+from apps.api.routes.secops import router as secops_router
 from apps.api.routes.agent import router as agent_router
 from apps.api.routes.approvals import router as approvals_router
 from apps.api.routes.audit import router as audit_router
@@ -140,6 +141,8 @@ def create_app() -> FastAPI:
     app.include_router(model_providers_router)
     app.include_router(knowledge_router)
     app.include_router(eval_router)
+    # V3.0 / P4-T2：多 Agent SecOps 跨栈报告（SARIF）与插件能力矩阵。
+    app.include_router(secops_router)
     # P4-T3：Prometheus 文本导出（无外部依赖；只暴露白名单指标）。
     from fastapi import Response
 
