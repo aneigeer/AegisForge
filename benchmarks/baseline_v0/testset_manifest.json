@@ -1,0 +1,100 @@
+{
+  "testset_version": "testset-v0-preview",
+  "status": "PREVIEW_NOT_GENERATED",
+  "preview": true,
+  "executed": false,
+  "generated": false,
+  "created_at": "2026-11-08T14:54:38+08:00",
+  "description": "预览版测试集规划：仅定义 PG/MySQL × 慢查询/连接压力/锁等待的 seed 空间与重复次数，未生成真实故障数据，未执行任何推理。",
+  "repetitions_per_seed": 3,
+  "cases": [
+    {
+      "case_id": "pg-slow_query",
+      "engine": "postgresql",
+      "scenario_id": "slow_query",
+      "fault_family": "slow_query",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_slow_missing_index", "ws_slow_bad_plan", "ws_slow_large_scan"],
+      "status": "NOT_GENERATED"
+    },
+    {
+      "case_id": "pg-connection_pressure",
+      "engine": "postgresql",
+      "scenario_id": "connection_pressure",
+      "fault_family": "connection_pressure",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_conn_burst", "ws_idle_in_tx", "ws_pool_exhaustion"],
+      "status": "NOT_GENERATED"
+    },
+    {
+      "case_id": "pg-lock_wait",
+      "engine": "postgresql",
+      "scenario_id": "lock_wait",
+      "fault_family": "lock_wait",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_lock_row", "ws_lock_table", "ws_lock_chain"],
+      "status": "NOT_GENERATED"
+    },
+    {
+      "case_id": "mysql-slow_query",
+      "engine": "mysql",
+      "scenario_id": "slow_query",
+      "fault_family": "slow_query",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_slow_missing_index", "ws_slow_bad_plan", "ws_slow_large_scan"],
+      "status": "NOT_GENERATED"
+    },
+    {
+      "case_id": "mysql-connection_pressure",
+      "engine": "mysql",
+      "scenario_id": "connection_pressure",
+      "fault_family": "connection_pressure",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_conn_burst", "ws_idle_in_tx", "ws_pool_exhaustion"],
+      "status": "NOT_GENERATED"
+    },
+    {
+      "case_id": "mysql-lock_wait",
+      "engine": "mysql",
+      "scenario_id": "lock_wait",
+      "fault_family": "lock_wait",
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "repetitions_per_seed": 3,
+      "workload_groups": ["ws_lock_row", "ws_lock_table", "ws_lock_chain"],
+      "status": "NOT_GENERATED"
+    }
+  ],
+  "split": {
+    "strategy": "group_split",
+    "group_keys": ["engine", "fault_family", "seed", "workload_group"],
+    "unit": "group",
+    "seed_disjoint_across_splits": true,
+    "workload_group_disjoint_across_splits": true,
+    "rules": [
+      "同一 (engine, fault_family, seed, workload_group) 组只能出现在一个 split 中。",
+      "同一 seed 不得同时出现在 train/dev/test，避免同源故障记忆。",
+      "同一 workload_group 不得跨 split 复用，避免 SQL 模板泄漏。",
+      "同一 fault_family 的不同 engine 必须作为独立组处理，禁止按引擎复制样本。",
+      "测试集只用于评估，不得回流到提示词调优或任何训练过程。"
+    ],
+    "oracle_isolation": {
+      "enabled": true,
+      "oracle_visible_to_agent": false,
+      "oracle_visible_to_model": false,
+      "oracle_in_logs": false,
+      "oracle_in_training_samples": false,
+      "note": "Ground Truth Oracle 独立存储，仅评测脚本可读；Agent Observation、模型上下文与普通日志均不包含。"
+    }
+  },
+  "notes": [
+    "本文件仅为测试集规划清单，preview=true、executed=false，不声称完整数据已生成。",
+    "每个引擎×场景建议 20 个 seed、每 seed 重复 3 次；资源不足时保持预览标记并登记缺口。",
+    "实际数据、故障脚本、重置流程与 Oracle 记录需另行生成并校验后更新本文件。",
+    "禁止在模型输入或工具响应中出现任何真值标签或注入参数。"
+  ]
+}

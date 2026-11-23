@@ -1,0 +1,92 @@
+"""桌面端启动器与打包配置单元测试。"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from cryptography.fernet import Fernet
+
+from apps.desktop.launcher import (
+    build_browser_app_command,
+    ensure_env_and_master_key,
+    main,
+    pick_port,
+    run_local_diagnosis,
+    save_local_byok_config,
+)
+
+
+def test_ensure_env_and_master_key_generates_and_preserves_fernet_key(tmp_path: Path) -> None:
+    (tmp_path / ".env.example").write_text("DG_ENV=dev\nDG_SECRET_MASTER_KEY=\n", encoding="utf-8")
+
+    env_path = ensure_env_and_master_key(tmp_path)
+    assert env_path.is_file()
+    content1 = env_path.read_text(encoding="utf-8")
+    lines = dict(
+        line.split("=", 1)
+        for line in content1.splitlines()
+        if "=" in line and not line.strip().startswith("#")
+    )
+    key1 = lines["DG_SECRET_MASTER_KEY"].strip()
+    # 验证生成的确实是合法的 Fernet 密钥
+    fernet = Fernet(key1.encode("ascii"))
+    assert fernet.decrypt(fernet.encrypt(b"dbguardian")) == b"dbguardian"
+
+    # 第二次调用必须幂等保留原密钥，不得覆盖已有密钥导致历史密文无法解密
+    ensure_env_and_master_key(tmp_path)
+    content2 = env_path.read_text(encoding="utf-8")
+    assert f"DG_SECRET_MASTER_KEY={key1}" in content2
+
+
+def test_build_browser_app_command_uses_isolated_app_mode(tmp_path: Path) -> None:
+    cmd = build_browser_app_command(
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        "http://127.0.0.1:8000/console/",
+        profile_dir=tmp_path / "profile",
+        width=1500,
+        height=940,
+    )
+    assert cmd[0].endswith("msedge.exe")
+    assert "--app=http://127.0.0.1:8000/console/" in cmd
+    assert "--window-size=1500,940" in cmd
+    assert any(arg.startswith("--user-data-dir=") for arg in cmd)
+
+
+def test_pick_port_returns_valid_tcp_port() -> None:
+    port, running = pick_port("127.0.0.1", preferred=0)
+    assert isinstance(port, int) and port > 0
+    assert running is False
+
+
+def test_cli_prepare_only_exits_zero() -> None:
+    assert main(["--prepare-only"]) == 0
+
+
+def test_save_local_byok_config_encrypts_api_key_without_plaintext(tmp_path: Path) -> None:
+    raw_secret = "sk-live-secret-99887766"
+    res = save_local_byok_config(
+        provider="deepseek",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        api_key=raw_secret,
+        repo_root=tmp_path,
+    )
+    assert res["status"] == "ok"
+    assert res["provider"] == "deepseek"
+    cfg_file = Path(res["config_path"])
+    assert cfg_file.is_file()
+    disk_content = cfg_file.read_text(encoding="utf-8")
+    assert raw_secret not in disk_content
+    assert "api_key_ciphertext" in disk_content
+
+
+def test_run_local_diagnosis_redacts_pii_and_returns_hub(tmp_path: Path) -> None:
+    res = run_local_diagnosis(
+        "订单库 pg_locks 锁等待超时，联系人手机 13812345678",
+        repo_root=tmp_path,
+    )
+    assert res["status"] == "ok"
+    assert "13812345678" not in res["redacted_symptom"]
+    assert res["hub"] in {"#07", "#08", "#04"}
+    assert res["confidence"] > 0.8
+

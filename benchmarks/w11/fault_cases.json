@@ -1,0 +1,47 @@
+{
+  "version": "fault-set-v1",
+  "cases": [
+    {
+      "case_id": "EVIDENCE_STORE",
+      "fault_class": "EVIDENCE_STORE",
+      "boundary": "AUTO",
+      "recovery_scope": "证据存储不可用 → 该步证据不落行（fail closed，不伪造数据）；存储恢复后重试即可补齐，无目标库副作用",
+      "notes": "注入点：EvidenceRepository.insert 抛 DatabaseUnavailableError（既有仓储接缝，不加生产分支）"
+    },
+    {
+      "case_id": "AUDIT_WRITER",
+      "fault_class": "AUDIT_WRITER",
+      "boundary": "MANUAL",
+      "recovery_scope": "审计账本不可写 → R2 请求被 emit_required 阻断（AUDIT_UNAVAILABLE / AUDIT_WRITE_FAILED），tool_calls_delta 恒 0；账本恢复后新事件可继续追加，但故障窗口内的事件只能靠结构化日志人工核对",
+      "notes": "注入点：TaskRepository.insert_event 抛 DatabaseQueryError（core/audit/service.py:209 emit_required → :240 抛错，不走 :248 try_emit）"
+    },
+    {
+      "case_id": "DB_DISCONNECT",
+      "fault_class": "DB_DISCONNECT",
+      "boundary": "MANUAL",
+      "recovery_scope": "目标库断连 → 观察工具返回 ERROR/DB_UNAVAILABLE 且 data 为空（不伪造采集结果）；若断连发生在写路径，写结果未知，必须人工核对是否已提交",
+      "notes": "注入点：工具上下文 client.fetch_all 抛 DatabaseUnavailableError（真实观察器工具的错误映射）"
+    },
+    {
+      "case_id": "MODEL_SERVICE",
+      "fault_class": "MODEL_SERVICE",
+      "boundary": "AUTO",
+      "recovery_scope": "模型服务不可用 → 调用归一化为 MODEL_CALL_FAILED（fail closed，不产生工具选择）；服务恢复后重试即可，期间走确定性降级路径而不是编造模型结论",
+      "notes": "注入点：模型适配器 complete 抛异常（ModelGateway 既有归一化），另断言 DisabledModelGateway 显式抛 MODEL_UNAVAILABLE"
+    },
+    {
+      "case_id": "WORKER_CRASH",
+      "fault_class": "WORKER_CRASH",
+      "boundary": "MANUAL",
+      "recovery_scope": "Worker 崩溃 → 已 Prepared 未 Observed 的调用由 Reconciler 收敛为待核对（不重放、不判成功/失败）；是否真的执行过必须人工确认",
+      "notes": "注入点：真实子进程 Popen.kill()（进程终止可观测）+ 崩溃等价构造（Prepared 无 Observed）后跑 Reconciler"
+    },
+    {
+      "case_id": "CONTROL_DB_TRANSIENT",
+      "fault_class": "CONTROL_DB_TRANSIENT",
+      "boundary": "AUTO",
+      "recovery_scope": "控制库短暂故障 → 关键写在 emit_required 处 fail closed 抛 AuditUnavailableError，事件序号不产生空洞；故障消失后重试成功，seq 从故障前继续连续",
+      "notes": "注入点：控制库 client.execute 抛 DatabaseQueryError（瞬时错误，可重试）"
+    }
+  ]
+}

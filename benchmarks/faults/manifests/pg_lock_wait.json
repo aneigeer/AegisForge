@@ -1,0 +1,28 @@
+{
+  "scenario_id": "pg_lock_wait",
+  "scenario": "lock_wait",
+  "db_engine": "postgresql",
+  "db_image_digest": null,
+  "db_version": "12.18",
+  "adapter_version": "1.0",
+  "migration_version": "004",
+  "data_seed": 4203,
+  "workload_config": {
+    "holder_row_id": 1,
+    "schema": "fault_lab",
+    "db_image_digest_note": "本地 LAB 为直连 PostgreSQL 12.18 实例，未使用容器镜像，故 db_image_digest 为 null"
+  },
+  "fault_script_hash": "93dc7f9fd68cb203211b24f1c1b6c2eeabf1e6c5d4f760f64ff65d2704decb0e",
+  "allowed_tools": [
+    "get_lock_wait_edges",
+    "get_lock_details",
+    "get_transaction_metadata",
+    "get_connection_snapshot"
+  ],
+  "verification_assertions": [
+    "lock_wait_edges_observes_waiting_lock",
+    "lock_target_table_dropped_after_reset",
+    "lock_sessions_closed_after_reset"
+  ],
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

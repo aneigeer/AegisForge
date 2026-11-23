@@ -1,0 +1,102 @@
+{
+  "version": "concurrency-set-v1",
+  "cases": [
+    {
+      "case_id": "old_worker_fencing",
+      "expected_code": "FENCING_TOKEN_STALE",
+      "expected_denied": true,
+      "notes": "旧 Worker 持旧 token 提交 → LeaseService.verify 判 fencing 过期（docs/w08/08-drill-report.md:97）；复用 core/gateway/leases.py:267 语义，不改"
+    },
+    {
+      "case_id": "lease_expired",
+      "expected_code": "WORKER_LEASE_INVALID",
+      "expected_denied": true,
+      "notes": "租约 expires_at 已过 → LeaseService.verify 第 4 项「租约已过期」"
+    },
+    {
+      "case_id": "wrong_fencing_token",
+      "expected_code": "FENCING_TOKEN_STALE",
+      "expected_denied": true,
+      "notes": "伪造更高 token → 与活动租约不一致，仍判 FENCING_TOKEN_STALE（防伪造高值）"
+    },
+    {
+      "case_id": "two_workers_same_task",
+      "expected_code": "WORKER_CONFLICT",
+      "expected_denied": true,
+      "notes": "双 Worker 同时 acquire → 活动租约未过期即冲突（docs/w08/08-drill-report.md:98）"
+    },
+    {
+      "case_id": "state_version_conflict",
+      "expected_code": "STATE_CONFLICT",
+      "expected_denied": true,
+      "notes": "TaskRepository.update_task_status 的 CAS 版本不符即拒绝，不覆盖、不重放"
+    },
+    {
+      "case_id": "duplicate_message",
+      "expected_code": null,
+      "expected_denied": null,
+      "notes": "同一幂等键第二轮 executed==0 且 tool_calls 仍为 1（ToolExecutor 幂等重放，emit TOOL_CALL_REPLAYED 而非重试）"
+    },
+    {
+      "case_id": "approval_consume_race",
+      "expected_code": null,
+      "expected_denied": null,
+      "notes": "一次性审批并发消费只允许一次成功：恰 1 次 APPROVAL_CONSUMED、恰 1 条 consumption 行"
+    },
+    {
+      "case_id": "nonce_replay",
+      "expected_code": "NONCE_REPLAY",
+      "expected_denied": true,
+      "notes": "同一信封第二次提交 → ToolGateway nonce 唯一登记冲突映射 NONCE_REPLAY（本卡只做 1 次确定性断言，100 次重放属 P1，不进门禁）"
+    },
+    {
+      "case_id": "audit_write_failure",
+      "expected_code": "AUDIT_WRITE_FAILED",
+      "expected_denied": true,
+      "notes": "R2 的 TOOL_CALL_STARTED 走 emit_required，写不进去即阻断执行（生产码 AUDIT_UNAVAILABLE，告警码 AUDIT_WRITE_FAILED），tool_calls_delta==0"
+    },
+    {
+      "case_id": "gateway_unreachable",
+      "expected_code": "OUTCOME_SKIPPED",
+      "expected_denied": false,
+      "notes": "控制库/网关不可达 → 无执行事实，按 workers/runner.py:90 OUTCOME_SKIPPED 处理，零目标副作用"
+    }
+  ],
+  "cross_tenant_probes": [
+    {
+      "probe_id": "probe_task_cross_tenant",
+      "object_kind": "TASK",
+      "notes": "TaskRepository.get_task(task_id, tenant_id=其他租户) → TASK_NOT_FOUND，返回集 0"
+    },
+    {
+      "probe_id": "probe_evidence_cross_tenant",
+      "object_kind": "EVIDENCE",
+      "notes": "EvidenceRepository.get(evidence_id, tenant_id) → EVIDENCE_INVALID（跨租户与不存在同一错误）"
+    },
+    {
+      "probe_id": "probe_approval_cross_tenant",
+      "object_kind": "APPROVAL",
+      "notes": "ApprovalRepository.get(approval_id, tenant_id) → APPROVAL_NOT_FOUND（不泄漏存在性）"
+    },
+    {
+      "probe_id": "probe_report_cross_tenant",
+      "object_kind": "REPORT",
+      "notes": "ReportRepository.list_by_task(task_id, tenant_id) → 空集"
+    },
+    {
+      "probe_id": "probe_environment_cross_tenant",
+      "object_kind": "ENVIRONMENT",
+      "notes": "TaskRepository.get_environment(environment_id, tenant_id) → None（返回集 0）"
+    },
+    {
+      "probe_id": "probe_audit_cross_tenant",
+      "object_kind": "AUDIT",
+      "notes": "AuditService.query(tenant_id=其他租户, task_id) → TASK_NOT_FOUND：隔离以 tasks JOIN 为准"
+    },
+    {
+      "probe_id": "probe_pseudo_task_boundary",
+      "object_kind": "AUDIT",
+      "notes": "伪任务 system:worker_scheduler：按 tenant_id 查询不返回（历史 tenant_id 为 NULL 行不 UPDATE），按 task_id 直查可见；两者并存如实记录"
+    }
+  ]
+}

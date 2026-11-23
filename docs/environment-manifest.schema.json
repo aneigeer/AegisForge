@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dbguardian.local/schemas/environment-manifest.schema.json",
+  "title": "DBGuardian Environment Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "environment_id",
+    "tenant_id_placeholder",
+    "db_engine",
+    "db_version",
+    "image_digest",
+    "network_id",
+    "config_version",
+    "migration_version",
+    "created_at",
+    "capabilities",
+    "status"
+  ],
+  "properties": {
+    "environment_id": {"type": "string", "minLength": 1},
+    "tenant_id_placeholder": {"type": "string", "minLength": 1},
+    "db_engine": {"enum": ["postgresql", "mysql"]},
+    "db_version": {"type": "string", "minLength": 1},
+    "image_digest": {"type": ["string", "null"]},
+    "network_id": {"type": "string", "minLength": 1},
+    "config_version": {"type": "string", "minLength": 1},
+    "migration_version": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "capabilities": {"type": "object"},
+    "status": {
+      "enum": [
+        "AVAILABLE",
+        "PARTIAL",
+        "DENIED",
+        "NOT_SUPPORTED",
+        "UNKNOWN",
+        "LOCAL_DEV_NOT_VERIFIED"
+      ]
+    }
+  }
+}

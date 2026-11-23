@@ -1,0 +1,49 @@
+{
+  "inference_config_version": "inference-config-v0",
+  "status": "BLOCKED_MODEL_ENV_MISSING",
+  "model": {
+    "name": "Qwen3-8B",
+    "model_commit": null,
+    "tokenizer_commit": null,
+    "dtype": "bfloat16",
+    "quantization": null,
+    "device": "cuda",
+    "tensor_parallel_size": 1
+  },
+  "runtime": {
+    "framework": "vLLM",
+    "framework_version": null,
+    "runtime_status": "PENDING_CLOUD_ENV",
+    "max_model_len": null,
+    "gpu_memory": {
+      "estimated_gb": null,
+      "status": "PENDING_MEASUREMENT",
+      "note": "显存预估必须由实际云端 GPU 实测后填写，当前不写任何估算值"
+    }
+  },
+  "decoding": {
+    "do_sample": false,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "max_new_tokens": 2048,
+    "seed": 42,
+    "stop_sequences": []
+  },
+  "tool_use": {
+    "tool_schema_version": "tool-schema-v0",
+    "max_tool_calls": 16,
+    "tool_timeout_ms": 30000,
+    "allow_write_tools": false,
+    "allow_arbitrary_sql": false
+  },
+  "observation": {
+    "prompt_version": "prompt-v0",
+    "testset_version": "testset-v0-preview",
+    "oracle_visible_to_model": false
+  },
+  "notes": [
+    "本配置仅描述上机时应使用的固定推理参数，不代表已执行推理。",
+    "framework_version、max_model_len 与显存占用均为待补项，云端 GPU 就绪后实测填写。",
+    "禁止在本配置中预填任何准确率、F1 或延迟数据。"
+  ]
+}

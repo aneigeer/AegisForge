@@ -1,0 +1,28 @@
+{
+  "scenario_id": "mysql_lock_wait",
+  "scenario": "lock_wait",
+  "db_engine": "mysql",
+  "db_image_digest": null,
+  "db_version": "8.0.46",
+  "adapter_version": "1.0",
+  "migration_version": "004",
+  "data_seed": 4103,
+  "workload_config": {
+    "holder_row_id": 1,
+    "wait_timeout_s": 30,
+    "db_image_digest_note": "本地 LAB 为直连 MySQL 8.0.46 实例，未使用容器镜像，故 db_image_digest 为 null"
+  },
+  "fault_script_hash": "d0fc40504f222a359ec14d979ab6e55215e4d20a810947850b6f9dc9bc492f55",
+  "allowed_tools": [
+    "get_lock_wait_edges",
+    "get_lock_details",
+    "get_transaction_metadata",
+    "get_connection_snapshot"
+  ],
+  "verification_assertions": [
+    "blocking_tree_observes_waiting_lock",
+    "lock_target_table_dropped_after_reset",
+    "lock_sessions_closed_after_reset"
+  ],
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

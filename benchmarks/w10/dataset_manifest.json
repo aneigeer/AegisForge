@@ -1,0 +1,183 @@
+{
+  "assignments": {
+    "cluster_0641aa1f7757e865": "train",
+    "cluster_0e44758da5122a95": "train",
+    "cluster_177f6e29ca390167": "train",
+    "cluster_1d04e0baa5d09fbb": "train",
+    "cluster_209a045df529d728": "train",
+    "cluster_2345ad5ad55b4fcc": "train",
+    "cluster_2c500e2e39535179": "dev",
+    "cluster_3b4583b640cf069d": "train",
+    "cluster_40d7f3c64095c1e0": "train",
+    "cluster_69a52662f44796ff": "train",
+    "cluster_73426b8e3321cedc": "train",
+    "cluster_73493fe4ff6eb6a3": "train",
+    "cluster_8328a1ca9e440e0d": "train",
+    "cluster_a0558c0b5113221f": "train",
+    "cluster_a309c49b3f27f64c": "train",
+    "cluster_bad2765a697baf20": "train",
+    "cluster_bd4de23320c09543": "test",
+    "cluster_c326b4d1d7203a51": "train",
+    "cluster_c5759204eed8bd9d": "train",
+    "cluster_dc1e291092265023": "dev",
+    "cluster_dd18caa27e31c869": "train",
+    "cluster_dd898e36954063c2": "train",
+    "cluster_e137e8797d1cbb45": "train",
+    "cluster_f2d89b0dc80d692a": "train"
+  },
+  "cluster_count": 24,
+  "counts": {
+    "dev": 2,
+    "test": 1,
+    "train": 21
+  },
+  "empty_splits": [],
+  "frozen_at": "2026-11-15T10:13:39.070440+00:00",
+  "group_keys": [
+    "engine",
+    "fault_family",
+    "seed",
+    "workload_group"
+  ],
+  "leakage_count": 0,
+  "notes": [
+    "group split：并查集三维度聚类 + canonical_digest 分桶，无 RNG。",
+    "leakage_count=0 由 seed / workload_group / (engine,fault_family,workload_group) 三维度两两求交实测得出。",
+    "规模目标 100–300 条（PRD P0-W10-04）为目标而非实测；本清单实际样本数=24，条数不等于有效训练规模。"
+  ],
+  "oracle_in_training_samples": false,
+  "ratios": [
+    80,
+    10,
+    10
+  ],
+  "sample_assignments": {
+    "s-00": "train",
+    "s-01": "train",
+    "s-02": "train",
+    "s-03": "train",
+    "s-04": "train",
+    "s-05": "train",
+    "s-06": "train",
+    "s-07": "dev",
+    "s-08": "train",
+    "s-09": "train",
+    "s-10": "test",
+    "s-11": "train",
+    "s-12": "train",
+    "s-13": "dev",
+    "s-14": "train",
+    "s-15": "train",
+    "s-16": "train",
+    "s-17": "train",
+    "s-18": "train",
+    "s-19": "train",
+    "s-20": "train",
+    "s-21": "train",
+    "s-22": "train",
+    "s-23": "train"
+  },
+  "seed_disjoint": true,
+  "split_digest": "d2839dabbabc248a712761d330017868ffe8294261ebfba6a26d0b8bbfa5f8b4",
+  "split_groups": {
+    "dev": {
+      "seed": [
+        "4107",
+        "4113"
+      ],
+      "triple": [
+        "postgresql|lock_wait|wg-13",
+        "postgresql|lock_wait|wg-7"
+      ],
+      "workload_group": [
+        "wg-13",
+        "wg-7"
+      ]
+    },
+    "test": {
+      "seed": [
+        "4110"
+      ],
+      "triple": [
+        "mysql|lock_wait|wg-10"
+      ],
+      "workload_group": [
+        "wg-10"
+      ]
+    },
+    "train": {
+      "seed": [
+        "4100",
+        "4101",
+        "4102",
+        "4103",
+        "4104",
+        "4105",
+        "4106",
+        "4108",
+        "4109",
+        "4111",
+        "4112",
+        "4114",
+        "4115",
+        "4116",
+        "4117",
+        "4118",
+        "4119",
+        "4120",
+        "4121",
+        "4122",
+        "4123"
+      ],
+      "triple": [
+        "mysql|lock_wait|wg-14",
+        "mysql|lock_wait|wg-16",
+        "mysql|lock_wait|wg-2",
+        "mysql|lock_wait|wg-20",
+        "mysql|lock_wait|wg-22",
+        "mysql|lock_wait|wg-4",
+        "mysql|lock_wait|wg-8",
+        "mysql|slow_query|wg-0",
+        "mysql|slow_query|wg-12",
+        "mysql|slow_query|wg-18",
+        "mysql|slow_query|wg-6",
+        "postgresql|lock_wait|wg-1",
+        "postgresql|lock_wait|wg-11",
+        "postgresql|lock_wait|wg-17",
+        "postgresql|lock_wait|wg-19",
+        "postgresql|lock_wait|wg-23",
+        "postgresql|lock_wait|wg-5",
+        "postgresql|slow_query|wg-15",
+        "postgresql|slow_query|wg-21",
+        "postgresql|slow_query|wg-3",
+        "postgresql|slow_query|wg-9"
+      ],
+      "workload_group": [
+        "wg-0",
+        "wg-1",
+        "wg-11",
+        "wg-12",
+        "wg-14",
+        "wg-15",
+        "wg-16",
+        "wg-17",
+        "wg-18",
+        "wg-19",
+        "wg-2",
+        "wg-20",
+        "wg-21",
+        "wg-22",
+        "wg-23",
+        "wg-3",
+        "wg-4",
+        "wg-5",
+        "wg-6",
+        "wg-8",
+        "wg-9"
+      ]
+    }
+  },
+  "strategy": "group_split",
+  "suite_version": "suite-v1",
+  "workload_group_disjoint": true
+}

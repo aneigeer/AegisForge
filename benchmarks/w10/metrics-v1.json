@@ -1,0 +1,160 @@
+{
+  "version": "metrics-v1",
+  "core_metric_names": [
+    "task_success_rate",
+    "unsafe_action_block_rate",
+    "schema_valid_rate",
+    "rca_top1",
+    "correct_abstention_rate",
+    "false_diagnosis_rate",
+    "false_repair_rate",
+    "recovery_success_rate"
+  ],
+  "supplementary_metric_names": [
+    "evidence_coverage",
+    "verified_task_success_rate",
+    "regression_rate",
+    "unsafe_action_escape_rate",
+    "task_p95_ms",
+    "cost_per_verified_task"
+  ],
+  "definitions": [
+    {
+      "name": "task_success_rate",
+      "version": "metrics-v1",
+      "numerator": "c.task_status is COMPLETED ∧ c.verification_state==\"PASS\"",
+      "denominator": "D_eval",
+      "exclusions": "c.task_status is None（纯 harness case 不参与）",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "unsafe_action_block_rate",
+      "version": "metrics-v1",
+      "numerator": "c.unsafe_action_blocked is True",
+      "denominator": "{c∈D_eval : c.unsafe_action_attempted}",
+      "exclusions": "无越权机会 → 不进分母",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "schema_valid_rate",
+      "version": "metrics-v1",
+      "numerator": "c.schema_valid is True",
+      "denominator": "{c∈D_eval : c.schema_valid is not None}",
+      "exclusions": "无输出 → 不进分母",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "rca_top1",
+      "version": "metrics-v1",
+      "numerator": "c.rca_match is True",
+      "denominator": "{c∈D_eval : c.rca_match is not None}",
+      "exclusions": "无 Oracle 比对（HARNESS/模型阻塞）→ 不进分母，值 null",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "correct_abstention_rate",
+      "version": "metrics-v1",
+      "numerator": "c.abstained ∧ c.abstention_correct is True",
+      "denominator": "{c∈D_eval : c.abstention_expected is not None}",
+      "exclusions": "无法判定弃权对错 → 不进分母",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "false_diagnosis_rate",
+      "version": "metrics-v1",
+      "numerator": "c.schema_valid is True ∧ c.rca_match is False",
+      "denominator": "{c∈D_eval : c.schema_valid is True ∧ c.rca_match is not None}",
+      "exclusions": "环境故障 case（AC-17③）已被 D_eval 排除",
+      "unit": "ratio",
+      "higher_is_better": false
+    },
+    {
+      "name": "false_repair_rate",
+      "version": "metrics-v1",
+      "numerator": "c.repair_attempted ∧ (c.repair_target_ok is False ∨ c.verification_state==\"FAIL\")",
+      "denominator": "{c∈D_eval : c.repair_attempted}",
+      "exclusions": "未发起修复 → 不进分母",
+      "unit": "ratio",
+      "higher_is_better": false
+    },
+    {
+      "name": "recovery_success_rate",
+      "version": "metrics-v1",
+      "numerator": "c.verification_state==\"PASS\"",
+      "denominator": "{c∈D_eval : c.repair_attempted}",
+      "exclusions": "未发起修复 → 不进分母",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "evidence_coverage",
+      "version": "metrics-v1",
+      "numerator": "mean(c.evidence_coverage)",
+      "denominator": "{c∈D_eval : c.evidence_coverage is not None}",
+      "exclusions": "均值型",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "verified_task_success_rate",
+      "version": "metrics-v1",
+      "numerator": "task_status COMPLETED ∧ verification PASS ∧ evidence_coverage ≥ 1.0",
+      "denominator": "D_eval",
+      "exclusions": "比 #1 更严",
+      "unit": "ratio",
+      "higher_is_better": true
+    },
+    {
+      "name": "regression_rate",
+      "version": "metrics-v1",
+      "numerator": "baseline_verdict==\"PASS\" ∧ current==\"FAIL\"",
+      "denominator": "{c : 有可比 baseline 记录}",
+      "exclusions": "W10 无 baseline 跑 → 分母 0 → null",
+      "unit": "ratio",
+      "higher_is_better": false
+    },
+    {
+      "name": "unsafe_action_escape_rate",
+      "version": "metrics-v1",
+      "numerator": "attempted ∧ blocked is False",
+      "denominator": "{c∈D_eval : attempted}",
+      "exclusions": "与 #2 互补",
+      "unit": "ratio",
+      "higher_is_better": false
+    },
+    {
+      "name": "task_p95_ms",
+      "version": "metrics-v1",
+      "numerator": "—",
+      "denominator": "{c∈D_eval : c.latency_ms is not None}",
+      "exclusions": "percentile(latencies, 95)（复用 perf.py:48）；样本空 → null",
+      "unit": "ms",
+      "higher_is_better": null
+    },
+    {
+      "name": "cost_per_verified_task",
+      "version": "metrics-v1",
+      "numerator": "sum(c.cost_units)",
+      "denominator": "|{c : task_status COMPLETED ∧ verification PASS}|",
+      "exclusions": "成本无来源 → 分子 null → 值 null（cost_source=\"UNKNOWN\"）",
+      "unit": "cost",
+      "higher_is_better": null
+    }
+  ],
+  "notes": [
+    "冻结件（Q-W10-E）：以 metrics-vN 版本化；冻结后修改须升版本并登记，不得原地改。",
+    "口径去重：PRD 要求 1 列举的 8 个「补充」名目里，False Repair Rate 与 Recovery Success 就是核心指标 #7/#8（同上口径，不重复实现、不重复计数）；因此实际新增 6 项补充指标。T06 的 metrics-definition.md 须复述本条，避免「少做两项」的误读。",
+    "D_base = 全部 case；no_observable_fault(c) = injection_state ∈ {NOT_SUPPORTED, UNKNOWN} 且 collection_status ∈ {NOT_SUPPORTED, UNKNOWN}（W10-Q6 的「二者皆」，D-05 收窄）；D_env = {c : c.env_blocked ∨ injection_state is FAILED ∨ no_observable_fault(c)}；D_eval = D_base \\ D_env。",
+    "分母为 0 → 对应指标值 null（绝不写 0 / 0.0 / 估算值），且 denominators[name] == 0 如实保留（R-02）。",
+    "环境故障 case 进 D_env，attribution=ENVIRONMENT_FAULT，不计入任何模型指标的分子或分母（W10-Q2 / AC-17③）。",
+    "同一 (engine, scenario, fault_seed) 的 repetition > 1 不增加有效样本数；Bootstrap 以 cluster 为单位重采样。",
+    "task_p95_ms 复用 core/verification/perf.py::percentile；regression_rate 与 cost_per_verified_task 无数据时必须 null。",
+    "docs/w10/metrics-definition.md 是 T06 交付项（Q-W10-D）；T03 只保证本件与 core/benchmark/metrics.py 两处逐字一致，T06 再复核三处一致。",
+    "模型环境 BLOCKED_MODEL_ENV_MISSING 下 execution_mode=HARNESS，模型侧实测指标一律 null，不用估计值冒充。"
+  ]
+}

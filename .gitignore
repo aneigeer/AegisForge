@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Key material（防止证书/私钥误入仓库）
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+
+# Runtime artifacts
+logs/
+*.log
+data/
+tmp/
+artifacts/
+checkpoints/
+outputs/
+training/experiments/runs/
+runs/
+deploy/pg_lab/
+deploy/environment-manifest.*.json
+!deploy/environment-manifest.example.json
+
+# Frontend & Desktop binaries
+node_modules/
+dist/
+.vite/
+*.exe
+
+# 本地工具与规划件：不纳管（INV：.workbuddy/、项目规划/ 一律不进 Git）
+.workbuddy/
+项目规划/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+~$*

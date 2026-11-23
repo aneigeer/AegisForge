@@ -1,0 +1,373 @@
+{
+  "schema_version": "2.0.0",
+  "document_title": "企业级数据库漏洞检测与自进化修复平台 — V2.0 生产增强版 AI 执行规范",
+  "generated_at": "2026-11-22T22:00:00+08:00",
+  "target_executor": "autonomous_coding_agent",
+  "project_overview": {
+    "positioning": "面向企业级异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）的零信任漏洞探测、AST 级出站双向可逆脱敏、容器化双轨沙箱 PoC 与 Dry-Run 验证、画布内 HITL 人工审批及受控自进化修复平台。",
+    "deployment_topology": {
+      "pattern": "胖控制面（内网 K8s 集群）+ 瘦桌面端（零凭据安全运维工作台）",
+      "fat_control_plane": {
+        "runtime": "内网 Kubernetes 集群 (FastAPI + Worker + PostgreSQL 控制库 + Redis/PG 状态库)",
+        "responsibilities": [
+          "HashiCorp Vault / KMS 动态凭据签发与内存态连接池维护",
+          "多维低侵入限流扫描引擎 (QPS <= 20, CPU 峰值增量 < 1.8%)",
+          "AST 级双向可逆脱敏网关与 KMS 信封加密映射状态库 (绑定 workflow_run_id 与 TTL)",
+          "异构分层池化沙箱 Harness (轻量瞬时容器 + 重量常驻温备池) 与生产只读预检双轨验证",
+          "会话级锁超时注入执行器、0~5m 实时熔断器与 24~72h SIEM 延迟观察期回滚引擎",
+          "可开关自主进化引擎 (Shadow Mode 影子测试与 Git-Style 版本快照回滚)",
+          "WORM 不可篡改 SHA-256 哈希链审计库与 PDF / SARIF v2.1.0 导出器"
+        ],
+        "security_boundary": "所有数据库生产凭据、脱敏映射表与真实业务数据 100% 留存内网控制面服务端"
+      },
+      "thin_desktop_client": {
+        "runtime": "原生桌面工作台 (Windows Native GDI+ DBGuardian.exe / Tauri / Electron)",
+        "transport": "mTLS / HTTPS 仅与控制面 API 通信",
+        "responsibilities": [
+          "8 节点可拖拽 S 型 DAG 画布渲染与实时流式日志 (Live Stream) 展示",
+          "画布内 HITL 人工审批断点交互（长按沿边框填充进度、未满弹性回弹、填满微震动锁定）",
+          "五大核心视图切换与「1.4s 慢速圆心扩散动效 / 极速排障模式」双模式切换"
+        ],
+        "security_boundary": "客户端本地零数据库凭据落盘、零脱敏映射表缓存、零直连生产数据库"
+      }
+    },
+    "end_to_end_closed_loop": [
+      "1. 异构资产纳管与动态凭据 (Vault/KMS 签发 TTL=15m 短期只读凭据，零明文落盘)",
+      "2. 多维低侵入漏洞探测 (CIS/等保2.0 基线、CVE 版本匹配、弱口令/过度授权、慢查询/存储过程风险)",
+      "3. 业务上下文风险定级 (基础 CVSS × 业务等级 × 公网/内网暴露面 × PII 密度 -> 过滤噪音，输出 P0~P3)",
+      "4. 模型网关与 AST 级双向脱敏 (L1 本地模型 + L2 强推理模型分级路由；SQL Parser AST 节点替换 + KMS 加密持久化映射表 + 返回语法校验与还原)",
+      "5. 分层修复与强制回滚生成 (Tier-1 临时缓解/Shadow Deny -> Tier-2 标准修复 SQL -> Tier-3 升级路径 + 强制 Rollback 脚本 + 锁表/重启评估)",
+      "6. 双轨验证引擎 (轨道1: 瞬时容器/温备池三阶段 PoC 消误报 + Dry-Run + 240 条业务 SQL 回放；轨道2: 生产只读采集表体积与 >30s 活跃长事务防 MDL 锁雪崩)",
+      "7. HITL 双人人工审批断点 (画布内挂起 + 长按边框蓄力防误触审批 + 飞书/钉钉/Jira 工单同步)",
+      "8. 生产原子执行与分级回滚保护 (注入 lock_wait_timeout=3s；0~5m 实时异常自动 Rollback；24~72h 延迟观察期联动 SIEM 监听权限报错并提供一键紧急恢复)",
+      "9. 可开关自主进化引擎 (静态/进化模式一键切换、误报与人工修改规则蒸馏、Shadow Mode 影子测试、Git 风格版本秒级回滚)",
+      "10. 全链路 WORM 审计与生态集成 (SHA-256 哈希链审计、导出 PDF/SARIF v2.1.0 报告、对接 CMDB/SIEM/CI-CD)"
+    ]
+  },
+  "existing_codebase_mapping": {
+    "core_platform_orchestrator": "core/platform/ten_modules.py",
+    "security_and_redaction": [
+      "core/security/redaction.py",
+      "core/security/secret_box.py",
+      "core/security/input_guard.py"
+    ],
+    "execution_and_preflight": [
+      "core/execution/gateway.py",
+      "core/execution/preflight.py",
+      "core/execution/remediation_determinism.py",
+      "core/execution/dispatch_queue.py"
+    ],
+    "llm_and_evolution": [
+      "core/llm/provider_registry.py",
+      "core/knowledge/promotion.py",
+      "core/knowledge/wiki_compiler.py",
+      "core/agent/loop.py"
+    ],
+    "governance_and_audit": [
+      "core/auth/rbac.py",
+      "core/auth/oidc.py",
+      "core/audit/worm.py"
+    ],
+    "api_and_desktop": [
+      "apps/api/main.py",
+      "apps/desktop/NativeShell.cs",
+      "apps/desktop/launcher.py",
+      "scripts/build_desktop_app.ps1"
+    ],
+    "existing_tests": [
+      "tests/unit/test_ten_core_modules.py",
+      "tests/unit/test_desktop_launcher.py"
+    ]
+  },
+  "engineering_invariants_and_constraints": [
+    {
+      "id": "INV-DB-APPEND-ONLY",
+      "rule": "控制库账号 dg_ctl 对控制面审计与事件表仅拥有 SELECT/INSERT 权限（无 UPDATE/DELETE）；所有状态演进（如 AST 脱敏映射生命周期、延迟观察期状态、工单审批流转）必须采用追加写（append-only）事件表设计。"
+    },
+    {
+      "id": "INV-ZERO-PLAINTEXT",
+      "rule": "生产数据库 DSN、API Key 及 AST 脱敏映射表严禁明文落盘；持久化必须通过 SecretBox (Fernet / KMS Envelope Encryption) 加密，瘦桌面端本地严禁缓存任何凭据或映射表。"
+    },
+    {
+      "id": "INV-MANDATORY-ROLLBACK-AND-LOCK-TIMEOUT",
+      "rule": "任何进入沙箱验证或生产执行的修复方案必须同时具备非空 Rollback 脚本与外层会话级锁超时语句（MySQL: SET SESSION lock_wait_timeout = 3; / PG: SET LOCAL lock_timeout = '3s';）。"
+    },
+    {
+      "id": "INV-RELEASE-MANIFEST-SYNC",
+      "rule": "若修改 pyproject.toml、docker-compose.yml、deploy/Dockerfile.* 或 .env.example 等部署清单文件，必须运行 .\\.venv\\Scripts\\python.exe scripts/w12_release.py 同步 RC 哈希清单。"
+    },
+    {
+      "id": "INV-PYTEST-EXECUTION",
+      "rule": "运行单元测试必须使用 .\\.venv\\Scripts\\python.exe -m pytest <path> -o addopts=\"\" -q -p no:cacheprovider，且禁止并发启动多个 pytest 进程。"
+    }
+  ],
+  "architecture_layers_and_modules_v2": [
+    {
+      "layer_id": "L1_INTERACTION_ORCHESTRATION",
+      "layer_name": "交互编排层",
+      "modules": [
+        {
+          "module_id": "M01",
+          "name": "工作流可视化编排引擎",
+          "target_file": "core/platform/ten_modules.py::WorkflowDagEngine",
+          "ui_location": "apps/desktop/NativeShell.cs (View 1: 工作流编排)",
+          "capabilities": [
+            "8 节点 S 型可拖拽 DAG 拓扑：02资产探测 -> 03/04多维检测与定级 -> 07隐私网关 -> 05 AI修复生成 -> 06双轨沙箱Harness -> 09 HITL审批断点 -> 安全执行与分级回滚 -> 08自主进化引擎",
+            "三路条件自动分流：① 沙箱 PoC 未复现 -> 误报抑制分支；② P0/P1 高危变更 -> 画布内 HITL 人工审批断点；③ 生产只读预检发现 >30s 活跃长事务 -> 自动挂起等待变更窗口",
+            "节点呼吸光晕状态机（running 青色光晕 / pending 琥珀色光晕 / completed 翠绿色 / bypassed 虚线旁路）与 Live Stream 实时日志流"
+          ],
+          "v2_enhancement_tasks": [
+            "在 WorkflowDagEngine.route_branch() 中新增对轨道 2 生产预检长事务阻塞 (active_long_tx_count > 0) 的 BRANCH_WINDOW_SUSPENDED_LONG_TX 分流逻辑",
+            "支持瘦桌面端通过 REST/WebSocket 拉取 DAG 节点状态快照，不在客户端本地存储敏感上下文"
+          ]
+        },
+        {
+          "module_id": "M02",
+          "name": "资产与凭据管理模块",
+          "target_file": "core/platform/ten_modules.py::AssetVaultManager",
+          "ui_location": "apps/desktop/NativeShell.cs (View 2: 资产与凭据)",
+          "capabilities": [
+            "纳管 MySQL / PostgreSQL / Redis / TiDB / Oracle 五类异构实例，支持一键同步 CMDB 资产",
+            "三维业务标签：business_tier (CORE_TRADE P0 / HIGH_FINANCE P0 / IMPORTANT P1)、network_exposure (PUBLIC_JUMP / STRICT_INTERNAL / INTERNAL_VPC)、pii_density (HIGH / MEDIUM / LOW)",
+            "HashiCorp Vault / KMS 动态只读凭据签发 (TTL=15m)，连接串仅驻留控制面内存，零明文落盘"
+          ],
+          "v2_enhancement_tasks": [
+            "新增瘦客户端安全视图 DTO (AssetPublicView)，剥离 encrypted_dsn_token 字段，确保瘦客户端仅接收资产元数据与 Vault Lease 状态"
+          ]
+        }
+      ]
+    },
+    {
+      "layer_id": "L2_DETECTION_VERIFICATION",
+      "layer_name": "检测验证层",
+      "modules": [
+        {
+          "module_id": "M03",
+          "name": "多维漏洞检测引擎",
+          "target_file": "core/platform/ten_modules.py::MultiDimVulnScanner",
+          "capabilities": [
+            "令牌桶限流只读探查 (QPS <= 20，实例 CPU 峰值增量 < 1.8%)",
+            "CIS / 等保 2.0 基线核查 (secure_file_priv、local_infile、idle_in_transaction_session_timeout、log_connections、Redis 危险命令)",
+            "CVE 版本与组合提权链匹配 (如 CVE-2024-7348)",
+            "过度授权 (GRANT ALL PRIVILEGES ON *.*)、弱口令与 SECURITY DEFINER 存储过程动态 SQL 风险分析"
+          ],
+          "v2_enhancement_tasks": [
+            "为扫描器增加 QPS 速率限制器与目标实例 CPU 负载探针熔断阈值 (cpu_delta_pct >= 1.8% 时自动降速)"
+          ]
+        },
+        {
+          "module_id": "M04",
+          "name": "上下文风险定级模块",
+          "target_file": "core/platform/ten_modules.py::ContextualRiskScorer",
+          "capabilities": [
+            "多因子评分公式：contextual_score = min(10.0, base_cvss * tier_weight * exposure_weight * pii_weight * 0.68)",
+            "自动抑制内网隔离且无敏感数据实例的低价值告警 (suppressed_as_noise = True)",
+            "标准化输出 P0 (8.5~10.0) / P1 (6.5~8.49) / P2 (4.0~6.49) / P3 (<4.0)"
+          ],
+          "v2_enhancement_tasks": []
+        },
+        {
+          "module_id": "M05",
+          "name": "修复方案生成与执行保护模块",
+          "target_file": "core/platform/ten_modules.py::LayeredRemediationGenerator",
+          "ui_location": "apps/desktop/NativeShell.cs (View 1 右侧检视器 Tab 1/2 & View 5 一键紧急恢复)",
+          "capabilities": [
+            "三层修复策略：Tier-1 临时缓解（含 Shadow Deny 最小权限观察清单） -> Tier-2 标准修复 SQL -> Tier-3 版本升级路径",
+            "强制配套生成 Rollback 回滚脚本（无回滚脚本禁止进入沙箱与生产）",
+            "锁表风险、重启需求与耗时量化评估",
+            "生产执行期外层强制注入会话级锁超时保护（MySQL: SET SESSION lock_wait_timeout = 3; / PG: SET LOCAL lock_timeout = '3s';）",
+            "双期分级回滚机制：① 0~5 分钟实时熔断期（SQL 报错/QPS 断崖下跌自动触发 Rollback）；② 24~72 小时延迟观察期（联动 SIEM 监听 Access Denied / Permission Denied 报错，触发告警并提供「一键紧急恢复 1-Click Restore」）"
+          ],
+          "v2_enhancement_tasks": [
+            "在 RemediationBundle 中新增 shadow_deny_checklist、lock_timeout_wrapper_sql、realtime_circuit_breaker_window_sec (300) 与 delayed_observation_hours (72) 字段",
+            "新增 wrap_sql_with_lock_timeout(db_engine, sql, timeout_sec=3) 方法，强制包裹会话级锁超时语句",
+            "新增 ProductionExecutionMonitor 类：实现 0~5m 实时指标熔断自动回滚与 24~72h SIEM 权限报错监听及 trigger_one_click_restore(finding_id) 接口"
+          ]
+        },
+        {
+          "module_id": "M06",
+          "name": "双轨沙箱验证模块 (Harness)",
+          "target_file": "core/platform/ten_modules.py::SandboxHarnessVerifier",
+          "ui_location": "apps/desktop/NativeShell.cs (View 1 右侧检视器 Tab 3: 双轨验证报告)",
+          "capabilities": [
+            "异构沙箱分层池化调度：轻量级引擎 (MySQL / PostgreSQL / Redis) 采用瞬时容器 (EPHEMERAL_CONTAINER) 秒级拉起即毁；重量级引擎 (TiDB / Oracle) 采用常驻温备池 + 逻辑隔离 (WARM_POOL_LOGICAL_ISOLATION: TiDB sandbox_db / Oracle PDB Clone)",
+            "轨道 1（正确性验证三阶段）：阶段1 漏洞真实性 PoC 验证消误报 -> 阶段2 修复脚本与回滚脚本 Dry-Run -> 阶段3 安全复测与 240 条脱敏业务 SQL 兼容性回放 (100% 通过)",
+            "轨道 2（生产只读安全预检）：执行前通过只读凭据采集目标表真实行数、数据体积 (table_rows / data_size_mb) 与当前运行 >30s 的活跃长事务 (active_long_tx_over_30s)，拦截潜在 MDL 锁雪崩"
+          ],
+          "v2_enhancement_tasks": [
+            "在 SandboxHarnessResult 中新增 pool_strategy (EPHEMERAL_CONTAINER | WARM_POOL_LOGICAL_ISOLATION)、prod_preflight_rows、prod_preflight_size_mb、active_long_tx_count 与 mdl_avalanche_blocked 字段",
+            "新增 run_track2_production_readonly_preflight(asset, bundle) 方法，当检测到 >30s 长事务时返回 mdl_avalanche_blocked=True 并通知 M01 DAG 挂起变更窗口"
+          ]
+        }
+      ]
+    },
+    {
+      "layer_id": "L3_AI_EVOLUTION",
+      "layer_name": "AI 与进化层",
+      "modules": [
+        {
+          "module_id": "M07",
+          "name": "统一模型网关与 AST 级脱敏模块",
+          "target_file": "core/platform/ten_modules.py::ModelGatewayReversibleRedactor",
+          "ui_location": "apps/desktop/NativeShell.cs (View 3: 模型网关与脱敏 & View 1 Tab 4: 脱敏对比)",
+          "capabilities": [
+            "多模型分级路由：L1 本地私有化 (vLLM / Ollama Qwen2.5-14B) + L2 外部强推理 API (Claude 3.7 / DeepSeek / GPT-4o) + L2-B 内网灾备集群 (DeepSeek-R1)",
+            "AST 语法树级精准替换：前置 SQL Parser 识别 AST 中的标识符节点（表名/字段名/Schema/用户名）与字面量节点（IP/PII 样本值），保留完整 SQL 语法结构",
+            "四重脱敏策略开关：tables (表名/字段名)、ips (IP/主机名)、creds (账号密码/Token)、pii (手机号/身份证/银行卡)",
+            "映射表 KMS 信封加密持久化：将脱敏映射表加密后与 workflow_run_id 绑定存入带 TTL 的内部状态存储，支持 HITL 跨天审批与控制面节点重启；模型返回 SQL 后先经本地 Parser 语法校验再按 AST 精准还原，变更闭环后自动销毁映射表"
+          ],
+          "v2_enhancement_tasks": [
+            "在 ModelGatewayReversibleRedactor 中实现基于 SQL 词法/AST 节点分类的精准替换器，以及 persist_encrypted_mapping(workflow_run_id, mapping, ttl_seconds) 和 load_and_restore_with_syntax_check(workflow_run_id, llm_sql) 方法",
+            "实现 destroy_mapping(workflow_run_id) 在变更闭环后彻底擦除持久化的加密映射记录"
+          ]
+        },
+        {
+          "module_id": "M08",
+          "name": "可开关自主进化引擎",
+          "target_file": "core/platform/ten_modules.py::ToggleableEvolutionEngine",
+          "ui_location": "apps/desktop/NativeShell.cs (顶栏全局开关 & View 4: 自主进化中心)",
+          "capabilities": [
+            "全局静态/进化模式一键开关：开启时处于影子测试受控模式；关闭时处于纯静态确定性模式，DAG 节点 8 自动虚线旁路 (bypassed)",
+            "Shadow Mode 影子测试与安全边界：从历史误报与 DBA 修改中蒸馏检测规则与领域记忆，仅进化规则绝不越权修改生产执行权限",
+            "Git 风格版本快照控制 (v1.8 / v1.7 / v1.6) 与一键秒级回滚"
+          ],
+          "v2_enhancement_tasks": []
+        }
+      ]
+    },
+    {
+      "layer_id": "L4_ENTERPRISE_GOVERNANCE",
+      "layer_name": "企业治理层",
+      "modules": [
+        {
+          "module_id": "M09",
+          "name": "权限与审批流模块",
+          "target_file": "core/platform/ten_modules.py::RbacApprovalWorkflow",
+          "ui_location": "apps/desktop/NativeShell.cs (左下角租户角色切换器 & View 1 右侧底部长按审批栏)",
+          "capabilities": [
+            "多租户隔离与三权分立 RBAC：高级 DBA (DBA，审批/执行/一键恢复)、安全工程师 (SEC，扫描/定级/蒸馏)、合规审计员 (AUD，只读审计/SARIF导出)",
+            "画布内 HITL 长按蓄力审批断点：四维审查视图 + 沿按钮边框顺时针填充进度（未满松开弹性回弹、填满微震动锁定）",
+            "外部工单协同集成：自动生成飞书 / 钉钉 / Jira 审批单载荷 (#CHG-2026-8841)"
+          ],
+          "v2_enhancement_tasks": []
+        },
+        {
+          "module_id": "M10",
+          "name": "全链路审计与生态集成模块",
+          "target_file": "core/platform/ten_modules.py::AuditEcosystemExporter",
+          "ui_location": "apps/desktop/NativeShell.cs (View 5: 审计日志)",
+          "capabilities": [
+            "WORM 不可篡改 SHA-256 哈希链审计：覆盖凭据签发、漏洞扫描、AST 脱敏调用、双轨沙箱验证、DBA 审批、生产执行、延迟期一键恢复及进化回滚",
+            "一键导出标准 SARIF v2.1.0 报告与等保 2.0 审计报告",
+            "CMDB 资产增量同步与 SIEM 双向联动（日志转发 + 24~72h 延迟观察期权限报错监听）"
+          ],
+          "v2_enhancement_tasks": [
+            "在 AuditEcosystemExporter 中新增 ingest_siem_permission_alert(asset_id, account, error_code) 方法，供 24~72h 延迟观察期联动触发「一键紧急恢复」审计事件"
+          ]
+        }
+      ]
+    }
+  ],
+  "desktop_workbench_v2_ui_spec": {
+    "target_file": "apps/desktop/NativeShell.cs",
+    "build_script": "scripts/build_desktop_app.ps1",
+    "output_binaries": [
+      "DBGuardian.exe",
+      "dist/DBGuardian.exe"
+    ],
+    "branding_policy": "无商业品牌前缀、无虚拟人名；统一使用「漏洞检测与自进化修复 · 企业级数据库安全防御平台」与纯角色标识「高级 DBA (DBA) / 安全工程师 (SEC) / 合规审计员 (AUD)」",
+    "five_views": [
+      {
+        "view_index": 0,
+        "name": "工作流编排",
+        "components": [
+          "8 节点可拖拽 S 型 DAG 画布（含节点 5 双轨沙箱 Harness 与节点 7 会话锁超时+分级回滚保护）",
+          "右侧 4-Tab 节点检视器：修复 SQL（含 lock_wait_timeout=3s 熔断注入） | Rollback 回滚（含 0~5m 实时熔断与 24~72h 延迟观察说明） | 双轨验证报告（轨道1 分层沙箱 PoC+DryRun + 轨道2 生产只读预检表行数与长事务核查） | 脱敏对比（AST 语法树节点级替换与 KMS 状态持久化标识）",
+          "底部长按边框蓄力审批栏：长按批准执行 (Approve) / 长按驳回 (Reject)"
+        ]
+      },
+      {
+        "view_index": 1,
+        "name": "资产与凭据",
+        "components": [
+          "4 项零信任统计卡片",
+          "5 台异构数据库实例表（展示沙箱池化策略：MySQL/PG/Redis 瞬时容器 vs TiDB/Oracle 常驻温备池，以及 Vault 动态只读凭据状态）",
+          "同步 CMDB 资产按钮"
+        ]
+      },
+      {
+        "view_index": 2,
+        "name": "模型网关与脱敏",
+        "components": [
+          "L1 本地 / L2 云端 / L2-B 灾备三层路由卡片",
+          "AST 级 4 项出站隐私脱敏规则实时开关",
+          "出站 Prompt 实时脱敏 JSON 预览（含 KMS 信封加密持久化 workflow_run_id 绑定标识）",
+          "配置自定义 BYOK 密钥弹窗"
+        ]
+      },
+      {
+        "view_index": 3,
+        "name": "自主进化中心",
+        "components": [
+          "自主进化/静态确定性模式联动横幅",
+          "误报率下降 (-42.6%) / 首通率 (96.8%) / 领域记忆库 (128 条) 指标卡",
+          "Git 风格进化快照版本历史 (v1.8 / v1.7 / v1.6) 与一键秒级回滚"
+        ]
+      },
+      {
+        "view_index": 4,
+        "name": "审计日志",
+        "components": [
+          "24~72h 延迟观察期监控横幅与「一键紧急恢复 (1-Click Restore)」按钮",
+          "WORM 不可篡改 SHA-256 哈希链审计日志表",
+          "导出审计报告 (PDF/SARIF) 按钮"
+        ]
+      }
+    ],
+    "signature_interactions": {
+      "hold_to_approve_perimeter_progress": "按住左键沿按钮四条边框顺时针填充进度 (0% -> 100%)，未满松开按阻尼弹簧物理回弹清空，填满后锁定状态并触发窗口微震动",
+      "dual_mode_animation_switch": "顶栏同时提供「☀/☾ 主题切换按钮」与「⚡ 极速排障模式开关」：常规模式下点击太阳/月亮以按钮为圆心按 1.4 秒 SmoothStep 曲线慢速扩散切换深浅配色；开启「极速排障模式」后一键关闭圆心扩散等非必要过渡动效，实现 0ms 瞬时切换以保障 DBA 应急响应效率"
+    }
+  },
+  "execution_plan_for_ai_agent": [
+    {
+      "phase": "Phase 1 — 升级十大核心模块引擎至 V2.0 (core/platform/ten_modules.py)",
+      "steps": [
+        "1. 在 ModelGatewayReversibleRedactor (M07) 中实现 AST 级标识符/字面量脱敏、KMS/Fernet 信封加密映射表持久化 (绑定 workflow_run_id 与 TTL)、返回 SQL 语法校验还原及闭环销毁。",
+        "2. 在 SandboxHarnessVerifier (M06) 中实现异构沙箱分层池化调度策略 (MySQL/PG/Redis -> EPHEMERAL_CONTAINER；TiDB/Oracle -> WARM_POOL_LOGICAL_ISOLATION) 与轨道 2 生产只读安全预检 (采集表行数、体积与 >30s 活跃长事务，拦截 MDL 锁雪崩)。",
+        "3. 在 LayeredRemediationGenerator (M05) 中实现会话级锁超时包裹器 (SET SESSION lock_wait_timeout = 3; / SET LOCAL lock_timeout = '3s';)、0~5m 实时熔断自动回滚器与 24~72h SIEM 延迟观察期「一键紧急恢复 (1-Click Restore)」接口。",
+        "4. 在 WorkflowDagEngine (M01) 与 AuditEcosystemExporter (M10) 中接入长事务窗口挂起分流与 SIEM 权限报错监听审计链。"
+      ]
+    },
+    {
+      "phase": "Phase 2 — 升级原生瘦桌面端至 V2.0 (apps/desktop/NativeShell.cs)",
+      "steps": [
+        "1. 在顶栏新增「⚡ 极速排障模式」开关：开启时关闭 1.4s 圆心扩散与过渡动效，实现 0ms 瞬时响应；关闭时保留 1.4s SmoothStep 圆心扩散主题切换。",
+        "2. 在视图 1 右侧检视器中展示 lock_wait_timeout=3s 熔断注入 SQL、双轨验证报告（轨道 1 分层池化沙箱 + 轨道 2 生产只读长事务预检）以及 AST 级 KMS 持久化脱敏对比。",
+        "3. 在视图 5（审计日志）顶部新增「24~72h 延迟观察期 SIEM 监控横幅」与「一键紧急恢复 (1-Click Restore)」按钮。",
+        "4. 运行 powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1 重新编译 DBGuardian.exe 与 dist/DBGuardian.exe。"
+      ]
+    },
+    {
+      "phase": "Phase 3 — 单元测试与全量 CI 门禁校验",
+      "steps": [
+        "1. 在 tests/unit/test_ten_core_modules.py 中新增 V2.0 专项测试：测试 AST 映射加密持久化与销毁、异构沙箱瞬时容器 vs 温备池路由、生产只读预检 >30s 长事务拦截、lock_wait_timeout=3s 注入及 24~72h 延迟观察期一键紧急恢复。",
+        "2. 运行 .\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_ten_core_modules.py tests/unit/test_desktop_launcher.py -o addopts=\"\" -q -p no:cacheprovider 确保 100% 通过。",
+        "3. 运行 powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1 确保全量单元测试、编译检查与密钥扫描全部 PASS。"
+      ]
+    }
+  ],
+  "acceptance_criteria": {
+    "unit_tests_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_ten_core_modules.py tests/unit/test_desktop_launcher.py -o addopts=\"\" -q -p no:cacheprovider",
+    "desktop_build_command": "powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1",
+    "full_ci_command": "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1",
+    "required_verifications": [
+      "AST 脱敏映射表以 Fernet/KMS 密文形式按 workflow_run_id 持久化，SQL 还原前经过语法校验，闭环后映射表立即销毁",
+      "MySQL/PG/Redis 自动分配 EPHEMERAL_CONTAINER，TiDB/Oracle 自动分配 WARM_POOL_LOGICAL_ISOLATION",
+      "轨道 2 生产只读预检检测到 >30s 活跃长事务时自动阻断执行并挂起变更窗口",
+      "下发生产的修复 SQL 100% 包含 lock_wait_timeout / lock_timeout 会话级超时保护与强制 Rollback 脚本",
+      "24~72h 延迟观察期接收到 SIEM 权限报错时可一键触发 1-Click Restore 并写入 WORM 哈希链",
+      "瘦桌面端 DBGuardian.exe 支持「1.4s 慢速圆心扩散」与「极速排障模式（0ms 瞬切）」双模式一键切换"
+    ]
+  }
+}

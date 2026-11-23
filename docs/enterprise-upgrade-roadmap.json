@@ -1,0 +1,459 @@
+{
+  "schema_version": "3.0.0",
+  "document_type": "enterprise_agent_execution_roadmap",
+  "project_name": "DBGuardian",
+  "target_state": "Enterprise-Grade Autonomous Database Diagnostics & Controlled Self-Evolving Agent (BYOK Model API Ready)",
+  "generated_at": "2026-11-20T23:08:00+08:00",
+  "strategic_shift_note": "Project model strategy pivoted to Enterprise BYOK (Bring Your Own Key/API): enterprises connect their own OpenAI-compatible/cloud/on-prem LLM APIs via runtime management APIs. Custom LoRA/SFT training is demoted from mandatory to OPTIONAL (only for constrained on-prem small-model appliances). Domain adaptation relies on Controlled Self-Evolution (LLM Wiki + Hybrid RAG + Multi-Confirmation).",
+  "baseline_snapshot": {
+    "git_head": "eb17e4ded29e87b25434515a7f591fe986965693",
+    "completed_phases": [
+      "phase_0_repo_hygiene_and_closeout (commits 5629550..88f73f9)",
+      "P1-T1 (commit dd6d03d: OpenAICompatibleAdapter + ModelRoleRouter + RedactionGate assertion hardening)",
+      "P1-T2 (commit 3910320: AGENT benchmark runner + compressed tool catalog + 9 MySQL baseline COMPLETED)",
+      "P2-T1 (commit f69c9f5: ENV-PG5432 unblocked with postgres:16.4 + pg_stat_statements + streaming SSE timeout + dual-engine execution)",
+      "P2-T1B (commit eb17e4d: benchmarks/external/ schema + 4-source converter + suite-v2.json 36 cases; suite-v1 byte-frozen)"
+    ],
+    "working_tree": "clean",
+    "runtime": "Python 3.14.7",
+    "current_release_tier": "TECH_PREVIEW",
+    "verified_unit_tests": "1851 passed",
+    "resolved_blockers": [
+      "ENV-PG5432 (postgres:16.4 healthy @127.0.0.1:55432, pg_stat_statements available=True)"
+    ],
+    "remaining_env_blockers": [
+      "ENV-1045 (DG_ADMIN_DSN physical backup/restore)",
+      "ENV-NV1 (Docker runtime network isolation verification for api/worker)",
+      "ENV-RESIDUE (append-only control tables)",
+      "ENV-MODEL (cloud/enterprise API keys not persisted in repo; 7B local baseline had rca_top1=0.222)"
+    ]
+  },
+  "global_invariants": [
+    {
+      "id": "INV-01",
+      "rule": "Never bypass ToolGateway, ApprovalService.consume (atomic single-use + digest binding), or PolicyEngine for any write/R2+ action.",
+      "reference_paths": [
+        "core/gateway/tool_gateway.py",
+        "core/approval/service.py",
+        "core/security/policy.py"
+      ]
+    },
+    {
+      "id": "INV-02",
+      "rule": "Maintain strict credential and network separation: Model services (model_net or external BYOK APIs) and model prompts must never receive database DSNs or raw DB credentials; Worker must not join model_net.",
+      "reference_paths": [
+        "docker-compose.yml",
+        "core/models/adapters/openai_compat.py",
+        "workers/stack.py"
+      ]
+    },
+    {
+      "id": "INV-03",
+      "rule": "Enforce RedactionGate across all external, evidence, report, knowledge/wiki, and training-sample export channels before persistence or sending payloads to external BYOK LLM APIs.",
+      "reference_paths": [
+        "core/redaction/gate.py",
+        "core/redaction/engine.py",
+        "core/report/samples.py"
+      ]
+    },
+    {
+      "id": "INV-04",
+      "rule": "Preserve append-only immutability on task_events, step_prepared, step_observed, approval_consumptions, evidence, knowledge_entries, and audit logs. R2+ execution must fail closed if audit emission fails.",
+      "reference_paths": [
+        "core/audit/service.py",
+        "core/execution/step_records.py",
+        "core/memory/repository.py"
+      ]
+    },
+    {
+      "id": "INV-05",
+      "rule": "Never expose benchmark Oracle ground truth (benchmarks/faults/oracle/) to Agent runtime, Evidence, logs, Wiki drafts, or training samples.",
+      "reference_paths": [
+        "core/benchmark/oracle.py",
+        "core/benchmark/dataset.py"
+      ]
+    },
+    {
+      "id": "INV-06",
+      "rule": "Never fabricate evaluation, performance, or runtime verification metrics. Keep unmeasured values null/UNKNOWN/NOT_EXECUTED until actually executed. Avoid forbidden fabrication words (预计/估计/约) and ORACLE_FORBIDDEN_FIELDS (fault_seed/expected_root_cause) in BaselineReport text.",
+      "reference_paths": [
+        "core/benchmark/report.py",
+        "core/benchmark/oracle.py",
+        "core/release/publish.py"
+      ]
+    },
+    {
+      "id": "INV-07",
+      "rule": "Memory/Knowledge/Wiki must never hold tool_registry, gateway, or DSN references and cannot authorize write execution.",
+      "reference_paths": [
+        "core/memory/models.py",
+        "core/memory/service.py",
+        "core/memory/resolver.py"
+      ]
+    },
+    {
+      "id": "INV-08",
+      "rule": "No silent self-evolution: learned knowledge/Wiki entries, BYOK model provider cutovers, or optional SFT model promotions require Machine Gate + Two-Person Multi-Confirmation (reviewer_2 != reviewer_1) with audit trail and rollback.",
+      "reference_paths": [
+        "core/memory/service.py",
+        "core/benchmark/report.py"
+      ]
+    },
+    {
+      "id": "INV-09",
+      "rule": "BYOK Security: Enterprise-supplied LLM API keys must be encrypted at rest and masked in all responses/logs/audits; user-supplied base_url values must pass strict SSRF validation (blocking loopback, link-local 169.254.0.0/16, control_net/lab_net internal hosts unless explicitly allowlisted).",
+      "reference_paths": [
+        "core/models/adapters/openai_compat.py",
+        "core/logging.py"
+      ]
+    }
+  ],
+  "pillars": [
+    {
+      "pillar_id": "P1_BYOK_MODEL_API_PLATFORM",
+      "name": "Enterprise BYOK Model API Management, SSRF Guard & Protocol Compatibility",
+      "priority": "P0",
+      "why_needed": "Currently OpenAICompatibleAdapter reads global .env settings at startup; apps/api/routes/ has no runtime API for enterprises to register, test, or switch their own LLM APIs per tenant.",
+      "tasks": [
+        {
+          "task_id": "P1-BYOK-T1",
+          "title": "Multi-tenant Model Provider Registry & Management API (/v1/model-providers)",
+          "target_files": [
+            "core/models/provider_registry.py",
+            "core/models/factory.py",
+            "apps/api/routes/models.py",
+            "apps/api/routes/agent.py",
+            "database/migrations/",
+            "core/security/authz.py"
+          ],
+          "implementation_steps": [
+            "Add control DB table (tenant_model_providers) storing per-tenant provider_id, name, provider_type (openai_compat / azure_openai / anthropic_compat / disabled), base_url, encrypted api_key, role_models JSON (planner/classifier/evaluator/embedding), timeout_s, stream flag, and active status.",
+            "Expose RBAC-protected REST endpoints: POST/GET/PATCH/DELETE /v1/model-providers, POST /v1/model-providers/{id}/test (connectivity + structured-output probe), and POST /v1/model-providers/{id}/activate.",
+            "Encrypt api_key using envelope/Fernet key from env (DG_SECRET_MASTER_KEY), return masked preview only (e.g. sk-***1234), and resolve ModelGateway per tenant_id in apps/api/routes/agent.py and workers/ instead of static global settings."
+          ],
+          "acceptance_criteria": [
+            "Two tenants can configure distinct LLM APIs without server restart and never see each other's providers (cross-tenant 404).",
+            "API responses, audit events, and logs contain zero plaintext API keys."
+          ]
+        },
+        {
+          "task_id": "P1-BYOK-T2",
+          "title": "Strict SSRF Guard, Egress Control & Token Quota Guardrails",
+          "target_files": [
+            "core/models/ssrf.py",
+            "core/models/adapters/openai_compat.py",
+            "core/models/gateway.py"
+          ],
+          "implementation_steps": [
+            "Validate base_url scheme (https required in prod; http allowlisted only for explicit dev/trusted internal subnets) and resolve DNS before connecting to block loopback (127.0.0.0/8), link-local/cloud metadata (169.254.0.0/16), and control_net/lab_net database ports.",
+            "Add per-tenant token/call rate-limit & cost-budget enforcement inside ModelGateway so runaway loops or misconfigured external APIs fail closed cleanly."
+          ],
+          "acceptance_criteria": [
+            "Registering http://169.254.169.254 or control_db host as base_url is rejected with structured error.",
+            "Exceeding tenant token/call budget aborts gracefully and emits audit event."
+          ]
+        },
+        {
+          "task_id": "P1-BYOK-T3",
+          "title": "Adaptive Schema Protocol Degradation & Multi-Provider Compatibility",
+          "target_files": [
+            "core/models/adapters/openai_compat.py",
+            "core/agent/planner.py",
+            "core/models/contracts.py"
+          ],
+          "implementation_steps": [
+            "Support 3-tier automatic protocol fallback for enterprise gateways (OneAPI/LiteLLM/vLLM/Azure/Anthropic-proxy) that reject json_schema(strict): (1) json_schema(strict) -> (2) response_format=json_object -> (3) strict JSON prompt + deterministic fence-stripping parser + Pydantic validation (still fail-closed on invalid schema).",
+            "Support custom HTTP headers, optional custom CA bundle path, and configurable retry-on-429/503 with exponential backoff within wall-clock deadline."
+          ],
+          "acceptance_criteria": [
+            "Mocked endpoints returning 400 on json_schema automatically negotiate down to json_object or prompt-JSON without crashing AgentLoop.",
+            "Invalid JSON from model still fails closed as MODEL_OUTPUT_INVALID."
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "P2_DUAL_ENGINE_DEBT_AND_REPAIR_EXPANSION",
+      "name": "Close W11 Debt, Expand Controlled Repairs & Load Real External Corpora",
+      "priority": "P0",
+      "depends_on": [],
+      "tasks": [
+        {
+          "task_id": "P2-T2",
+          "title": "Close W11 backup/negative-set technical debt (KD-W11-01/02/03)",
+          "target_files": [
+            "core/assurance/backup.py",
+            "core/assurance/negative.py",
+            "tests/integration/test_w11_backup_restore.py",
+            "tests/integration/test_w11_security_negative.py"
+          ],
+          "implementation_steps": [
+            "Include approval_consumptions and step_prepared in BACKUP_OBJECT_TABLES (5 tables total) and align audit_chain bucket naming.",
+            "Seed non-empty records across all backup/restore categories and replace sentinel IDs in negative-set groups G1-G3 with real seeded objects so AC-03 proves non-mutation on real rows."
+          ],
+          "acceptance_criteria": [
+            "All 5 append-only/control tables verified non-empty before and after restore.",
+            "All 29 negative cases assert real target-row non-mutation."
+          ]
+        },
+        {
+          "task_id": "P2-T3",
+          "title": "Expand controlled repair playbooks, fix core loop PARTIAL handling & W08 KD-1",
+          "target_files": [
+            "adapters/mysql/lab_repair.py",
+            "core/agent/loop.py",
+            "core/tools/contracts.py",
+            "core/verification/plan.py",
+            "core/verification/compensation.py",
+            "core/security/policy.py"
+          ],
+          "implementation_steps": [
+            "Address P2-T1 leftover: ensure AgentLoop handles tool PARTIAL (truncated with valid data and no error) cleanly across both engines rather than terminating early.",
+            "Add scoped R2 repair tools behind explicit ToolDefinition contracts with mandatory VerificationPlan and CompensationPlan, plus pre-flight EXPLAIN/dry-run and blast-radius thresholds inside ToolGateway.",
+            "Emit COMPENSATION_DENIED consistently when compensation reusing original approval is rejected by Gateway (closing W08 KD-1)."
+          ],
+          "acceptance_criteria": [
+            "Truncated read tools allow AgentLoop to continue reasoning without false failure.",
+            "Each new repair action passes approval -> digest check -> execution -> independent verification -> compensation/rejection E2E tests."
+          ]
+        },
+        {
+          "task_id": "P2-T4",
+          "title": "Ingest local/offline external benchmark corpora into suite-v2 (when corpus files provided)",
+          "target_files": [
+            "benchmarks/external/",
+            "benchmarks/w10/suite-v2.json"
+          ],
+          "implementation_steps": [
+            "Provide CLI/script accepting local downloaded JSONL snapshots from DiagDBench (RUCKBReasoning/DiagDBench), D-Bot (TsinghuaDatabaseGroup/DB-GPT), BIRD-CRITIC-1 (bird-bench/BIRD-CRITIC-1), and BenchBase (cmu-db/benchbase) so environments without direct GitHub access can attach real external scenarios to suite-v2."
+          ],
+          "acceptance_criteria": [
+            "Attaching local corpus files produces valid suite-v2 manifests with zero Oracle leakage and suite-v1 byte-unchanged."
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "P3_KNOWLEDGE_EVOLUTION_AND_MULTI_CONFIRMATION",
+      "name": "Knowledge Self-Evolution (LLM Wiki + Hybrid RAG) & Multi-Confirmation Workbench",
+      "priority": "P0",
+      "depends_on": [
+        "P1_BYOK_MODEL_API_PLATFORM"
+      ],
+      "why_needed": "Replaces model fine-tuning for enterprise BYOK deployments: any connected model API learns enterprise-specific DB schemas, runbooks, and incident patterns via multi-confirmed LLM Wiki & RAG.",
+      "tasks": [
+        {
+          "task_id": "P3-T1",
+          "title": "Upgrade MemoryService & Evolution Pipeline to 3-Gate Multi-Confirmation (N-of-M Sign-off)",
+          "target_files": [
+            "core/memory/models.py",
+            "core/memory/service.py",
+            "core/memory/repository.py",
+            "database/migrations/",
+            "core/audit/events.py"
+          ],
+          "implementation_steps": [
+            "Add multi-confirmation state machine for evolution candidates (knowledge/Wiki entries, dataset batches, and BYOK model cutovers): PROPOSED -> MACHINE_VERIFIED -> REVIEW_STAGE_1 (DBA/Reviewer-1) -> APPROVED_ACTIVE (Owner/Security Reviewer-2 != Reviewer-1) -> REVOKED.",
+            "Enforce Gate 1 (Machine Gate): RedactionGate + Oracle zero-leak check + ConflictResolver check (and for model cutover: benchmark gate score >= threshold).",
+            "Enforce Gate 2 & Gate 3 (Dual Human Confirmation): distinct authenticated principals (reviewer_2.user_id != reviewer_1.user_id, DB-authoritative RBAC, bound to candidate content_digest) + one-click REVOKE rollback."
+          ],
+          "acceptance_criteria": [
+            "Same user attempting both stage-1 and stage-2 confirmation is rejected fail-closed.",
+            "Content modification after stage-1 invalidates stage-1 sign-off.",
+            "Unconfirmed or single-confirmed knowledge never enters INDEXED retrieval."
+          ]
+        },
+        {
+          "task_id": "P3-T2",
+          "title": "Build LLM Wiki Compiler, Hybrid RAG & Wire Approved Knowledge into AgentLoop/ContextBuilder",
+          "target_files": [
+            "core/memory/wiki/",
+            "core/memory/resolver.py",
+            "core/memory/retrieval.py",
+            "core/context/builder.py",
+            "core/agent/loop.py",
+            "core/models/adapters/openai_compat.py"
+          ],
+          "implementation_steps": [
+            "After a diagnostic task terminates, run a post-task Wiki Synthesizer (using the tenant's BYOK model API) on redacted reports/evidence to emit structured Wiki drafts (FaultPattern / Runbook / SchemaNote) in PROPOSED status only.",
+            "Implement EmbeddingAdapter HTTP transport (OpenAI-compatible /embeddings via BYOK provider, or local/BM25 fallback when embedding endpoint is not configured) + hybrid retrieval gated FIRST by MemoryResolver 8-stage hard filters (tenant_id, db_engine, db_version, adapter_version, capabilities, environment_fingerprint, risk_level, indexable_at).",
+            "Wire ContextBuilder and AgentLoop to inject top-k INDEXED (multi-confirmed) Wiki/knowledge entries into prompts with evidence_id citations, keeping INV-07 zero-execution-authority."
+          ],
+          "acceptance_criteria": [
+            "AgentLoop uses multi-confirmed INDEXED Wiki knowledge during diagnosis and excludes PROPOSED/REVOKED/CONFLICTED/cross-tenant/cross-engine entries.",
+            "Post-task synthesis never bypasses RedactionGate or auto-promotes to INDEXED."
+          ]
+        },
+        {
+          "task_id": "P3-T3",
+          "title": "Build Web Console & Multi-Confirmation Evolution Workbench (apps/web/)",
+          "target_files": [
+            "apps/api/routes/",
+            "apps/web/",
+            "docs/w12/openapi.json"
+          ],
+          "implementation_steps": [
+            "Expose /v1/evolution/* APIs: list pending Wiki/knowledge drafts, candidate model cutovers, and curated case batches; inspect redacted diff, evidence chain, and benchmark results; execute Stage-1 confirm, Stage-2 confirm, Reject, or Revoke.",
+            "Scaffold apps/web/ (React+Vite+TypeScript or Next.js) with core enterprise views: (1) BYOK Model Provider Settings & Live Test Console; (2) Multi-Confirmation Evolution Workbench (two-person sign-off queue + evidence/diff viewer); (3) Task Diagnosis Timeline & R2 Repair Approval Workbench; (4) Audit Chain Verifier."
+          ],
+          "acceptance_criteria": [
+            "Operator configures an enterprise model API in Web UI, runs a diagnosis, reviews the generated Wiki draft across two distinct human accounts, sees it improve the next diagnosis, and can revoke it."
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "P4_ENTERPRISE_INFRA_AUTH_WORM_OBSERVABILITY",
+      "name": "Enterprise Identity (SSO), S3 Object Lock WORM & Active Observability",
+      "priority": "P1",
+      "depends_on": [],
+      "tasks": [
+        {
+          "task_id": "P4-T1",
+          "title": "Add OIDC / SSO authentication provider with DB-authoritative RBAC",
+          "target_files": [
+            "core/auth/service.py",
+            "core/auth/oidc.py",
+            "apps/api/routes/auth.py",
+            "apps/api/security.py",
+            "core/config.py"
+          ],
+          "implementation_steps": [
+            "Implement OIDC JWT/JWKS validation and external subject-to-local-principal mapping (ensuring real distinct reviewer_1 / reviewer_2 identities in P3-T1), keeping roles and tenant permissions strictly DB-authoritative."
+          ],
+          "acceptance_criteria": [
+            "All W05 RBAC/cross-tenant 404 negative tests stay green; tampered/unmapped JWTs fail closed."
+          ]
+        },
+        {
+          "task_id": "P4-T2",
+          "title": "Implement S3/MinIO Object Lock WORM archive sink",
+          "target_files": [
+            "core/audit/worm.py",
+            "core/audit/service.py",
+            "scripts/audit_verify.py",
+            "docker-compose.yml"
+          ],
+          "implementation_steps": [
+            "Implement ObjectStorageArchiveSink with S3 Object Lock retention headers and add optional MinIO service profile in docker-compose.yml."
+          ],
+          "acceptance_criteria": [
+            "Overwrite/delete within retention window is rejected by MinIO/S3 and verified by audit_verify.py."
+          ]
+        },
+        {
+          "task_id": "P4-T3",
+          "title": "Integrate OpenTelemetry tracing & Prometheus metrics scraping",
+          "target_files": [
+            "apps/api/main.py",
+            "workers/runner.py",
+            "core/logging.py",
+            "core/benchmark/telemetry.py"
+          ],
+          "implementation_steps": [
+            "Instrument FastAPI, WorkerRunner, ToolGateway, and ModelGateway (including BYOK latency/token/error metrics) with redacted OTel spans + Prometheus /metrics.",
+            "Extend AppTelemetryAdapter to ingest live Prometheus snapshots while retaining strict 6-key allowlist and UNKNOWN fallback."
+          ],
+          "acceptance_criteria": [
+            "Metrics/traces contain zero SQL literals, DSN secrets, or BYOK API keys."
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "P5_EVAL_AND_DATA_MIDDLE_PLATFORM",
+      "name": "BYOK Model Acceptance Evaluation Platform & Data Feedback Pipeline",
+      "priority": "P1",
+      "depends_on": [
+        "P1_BYOK_MODEL_API_PLATFORM",
+        "P3_KNOWLEDGE_EVOLUTION_AND_MULTI_CONFIRMATION"
+      ],
+      "tasks": [
+        {
+          "task_id": "P5-T1",
+          "title": "Persistent Evaluation Middle-Platform & 'Test Before Go-Live' BYOK Gate",
+          "target_files": [
+            "core/benchmark/",
+            "apps/api/routes/",
+            "apps/web/",
+            "database/migrations/"
+          ],
+          "implementation_steps": [
+            "Persist eval_suites, eval_runs, eval_case_results, and BYOK model/Wiki version comparisons in control DB.",
+            "Provide an API & Web UI button 'Evaluate Model Candidate' so when an enterprise plugs in a new API/model or updates Wiki knowledge, it automatically runs the benchmark suite, computes 14 metrics + bootstrap CI, and feeds results into P3-T1's Machine Gate before cutover confirmation."
+          ],
+          "acceptance_criteria": [
+            "Enterprises can compare two model APIs or Wiki snapshots side-by-side in Web UI before promoting one to active."
+          ]
+        },
+        {
+          "task_id": "P5-T2",
+          "title": "Automated Data Feedback Pipeline (and OPTIONAL isolated LoRA SFT export)",
+          "target_files": [
+            "core/report/samples.py",
+            "core/benchmark/dataset.py",
+            "datasets/"
+          ],
+          "implementation_steps": [
+            "Automatically curate multi-confirmed resolved sessions via build_training_sample() -> clean_dataset() -> split_samples() into versioned golden regression datasets (for P5-T1) and optional SFT exports.",
+            "OPTIONAL (skip unless deploying a dedicated small on-prem appliance): run offline LoRA fine-tuning under an isolated name (e.g. dbguardian-7b-sft-v1) without touching shared weights."
+          ],
+          "acceptance_criteria": [
+            "Exported golden regression cases pass RedactionGate and zero-Oracle-leak checks."
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "P6_PROD_DEPLOYMENT_HA_AND_VERIFICATION",
+      "name": "Containerized Isolation, Physical Backup/Restore & Multi-Worker Soak",
+      "priority": "P1",
+      "depends_on": [
+        "P2_DUAL_ENGINE_DEBT_AND_REPAIR_EXPANSION",
+        "P4_ENTERPRISE_INFRA_AUTH_WORM_OBSERVABILITY"
+      ],
+      "tasks": [
+        {
+          "task_id": "P6-T1",
+          "title": "Enforce strict container network isolation and verify runtime topology (close ENV-NV1)",
+          "target_files": [
+            "docker-compose.yml",
+            "deploy/Dockerfile.api",
+            "deploy/Dockerfile.worker",
+            "scripts/environment_manifest.py"
+          ],
+          "implementation_steps": [
+            "Remove transitional lab_net from api in docker-compose.yml, build API/Worker/Web containers, record immutable SHA-256 digests, and run live cross-network negative probes."
+          ],
+          "acceptance_criteria": [
+            "container_runtime_status == VERIFIED and image_digest != UNKNOWN."
+          ]
+        },
+        {
+          "task_id": "P6-T2",
+          "title": "Physical backup/restore, multi-worker HA failover & soak test toward ALPHA",
+          "target_files": [
+            "workers/runner.py",
+            "core/gateway/leases.py",
+            "core/assurance/soak.py",
+            "core/assurance/backup.py"
+          ],
+          "implementation_steps": [
+            "Resolve DG_ADMIN_DSN (ENV-1045) in test environment, run physical backup/restore & migration drills, execute >= 3600s multi-worker concurrent soak with crash failover, and re-run publish_decision() -> derive_release_type()."
+          ],
+          "acceptance_criteria": [
+            "SoakReport.status == COMPLETED with measured p50/p95 and zero duplicate R2 writes.",
+            "publish_decision() reaches ALPHA_ALLOWED."
+          ]
+        }
+      ]
+    }
+  ],
+  "execution_order_for_ai_agent": [
+    "1. Execute P1_BYOK_MODEL_API_PLATFORM (P1-BYOK-T1, T2, T3) so enterprises can dynamically configure, SSRF-validate, probe, and switch their own LLM APIs per tenant with adaptive JSON-protocol fallback.",
+    "2. Execute P2-T2 and P2-T3 (close W11 technical debt KD-W11-01/02/03, fix core loop PARTIAL truncation handling, expand controlled repair actions + W08 KD-1; optionally run P2-T4 when local external corpora are supplied).",
+    "3. Execute P3-T1, P3-T2, and P3-T3 (3-Gate Multi-Confirmation + LLM Wiki + Hybrid RAG wired into AgentLoop + Web Confirmation Workbench in apps/web/) so BYOK models improve continuously via human-confirmed knowledge without training weights.",
+    "4. Execute P5-T1 and P5-T2 (Evaluation Middle-Platform 'Test Before Go-Live' BYOK comparison + automated golden dataset feedback; leave LoRA SFT strictly optional).",
+    "5. Execute P4 (OIDC SSO, S3 Object Lock WORM, OTel/Prometheus) and P6 (Docker runtime network isolation ENV-NV1, physical backup/restore ENV-1045, multi-worker soak test) to promote release tier from TECH_PREVIEW to ALPHA."
+  ]
+}

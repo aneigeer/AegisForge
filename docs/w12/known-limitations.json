@@ -1,0 +1,137 @@
+{
+  "items": [
+    {
+      "added_by": null,
+      "item_id": "ENV-PG5432",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "PostgreSQL LAB（5432）拒绝连接：跨引擎只读诊断的 PG 段未执行，按 NOT_EXECUTED 处置，不判通过、不冒充已执行。"
+    },
+    {
+      "added_by": null,
+      "item_id": "ENV-1045",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "DG_ADMIN_DSN（root@localhost）认证失败 1045：库级物理备份恢复不可用，W11 只做逻辑影子回放，不声称物理恢复已支持。"
+    },
+    {
+      "added_by": null,
+      "item_id": "ENV-RESIDUE",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "控制库只追加表存在未观测历史残留（W09 实测 140 行且随时间增长）：W11 各卡继续只追加不清理，所有计数按 task_id/run_id 过滤。"
+    },
+    {
+      "added_by": null,
+      "item_id": "ENV-NV1",
+      "marker": "UNKNOWN",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "容器运行态 NOT_VERIFIED、镜像 digest 为 UNKNOWN：容器网络隔离未在运行态验证，不声称已验证。"
+    },
+    {
+      "added_by": null,
+      "item_id": "ENV-MODEL",
+      "marker": "UNKNOWN",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "模型环境 BLOCKED_MODEL_ENV_MISSING：模型版本与生成时延等指标未测得，相关字段一律保持 null。"
+    },
+    {
+      "added_by": null,
+      "item_id": "DECISION-TECH-PREVIEW",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "发布结论为 TECH_PREVIEW_ONLY：存在未清环境阻塞或红线失败，不得表述为完整 Alpha。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-PROD-AUTO-WRITE",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「生产自动写入」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-GENERIC-AUTO-REPAIR",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「通用故障自动修复」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-ALWAYS-DIAGNOSE",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「所有场景必然诊断成功」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-FULL-DEADLOCK-INDEX",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「完整死锁/索引评估」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-EXACTLY-ONCE",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「跨系统 Exactly Once」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "NP-NETWORK-ISOLATION-VERIFIED",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "W12 不承诺「网络级隔离已验证（KD-1 账号级）」：该项能力不在本轮交付范围内，不得据此推断已具备。"
+    },
+    {
+      "added_by": null,
+      "item_id": "DOC-PARTIAL",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "reason": null,
+      "statement": "文档完整性滞后（D-05/D-07）：迁移版本表与回滚清单已于 2026-11-19 补至 011（11 正向 + 8 回滚）、`.env.example` 已写明 fake/openai_compat/disabled 三态；仍存疑者为 W07 冻结四件套：05-freeze.md / 06-conformance-audit.md 虽于 2026-11-17 落盘，其形成过程未经本卡独立复核，故不声称四件套齐全。"
+    },
+    {
+      "added_by": "主理人裁定",
+      "item_id": "KD-W11-01",
+      "marker": "PARTIAL",
+      "origin": "MANUAL",
+      "reason": "docs/w10-w12-lead-rulings.md §13.3 已知限制 L-1：只登记，不驱动路由、不降级 AC；W12 只读引用，不修 W11 逻辑。",
+      "statement": "W11 备份恢复口径偏离：audit_chain 桶命名与 s3 键不一致（docs/w11/backup-restore-report.md:124-133）。"
+    },
+    {
+      "added_by": "主理人裁定",
+      "item_id": "KD-W11-02",
+      "marker": "PARTIAL",
+      "origin": "MANUAL",
+      "reason": "docs/w10-w12-lead-rulings.md §13.3 已知限制 L-2：只登记，不降级 AC；W12 不改 W11 实现。",
+      "statement": "W11 备份恢复覆盖漏项：未覆盖 approval_consumptions 与 step_prepared 两张只追加表。"
+    },
+    {
+      "added_by": "主理人裁定",
+      "item_id": "KD-W11-03",
+      "marker": "PARTIAL",
+      "origin": "MANUAL",
+      "reason": "docs/w10-w12-lead-rulings.md §13.3 已知限制 L-3（含 KD-W11-03 文本小瑕说明）：只登记。",
+      "statement": "W11 恢复报告哨兵归属错位（G1–G3），且 delta/after>before 缓解断言实属 T05 备份用例。"
+    }
+  ],
+  "items_digest": "682a7cde9b8ecf4e2e6422fe4b0a3e077f9181773487b2216a3c96fd0de4cbf0",
+  "source_path": "docs/w12/known-limitations.json",
+  "version": "w12-limitations-v1",
+  "w11_source_digest": "fbc39d0b847e1e6513806cdf4e5861988315ebc9e4049c35f227f3ce238e4ba7",
+  "w11_source_status": "PASSED"
+}

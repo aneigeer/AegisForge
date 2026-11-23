@@ -1,0 +1,55 @@
+{
+  "manifest_version": "w11-rc-v1",
+  "commit": "0d8b5c4d1b100c6de050dfc3ba1c545f01b62ea8",
+  "db_image_digest": "UNKNOWN",
+  "adapter_version": "mysql:1.0;postgres_mcp:1.0",
+  "tool_schema_version": "tool-schema-v0",
+  "policy_version": "w05-v1",
+  "prompt_version": "prompt-v0",
+  "model_version": null,
+  "testset_version": "testset-v0-preview",
+  "testset_version_label": "testset-v0-preview",
+  "migration_versions": [
+    "001_harness_core",
+    "002_v22_evidence",
+    "003_evidence_redaction_hash",
+    "004_tenant_composite_fk",
+    "005_w05_identity_policy",
+    "006_w06_approval_audit",
+    "007_w07_disclosure",
+    "008_w08_verification",
+    "009_w09_redaction",
+    "010_w09_report",
+    "011_w09_memory",
+    "012_p1_byok_model_providers",
+    "013_p1_byok_provider_versions",
+    "014_p3_knowledge_confirmations",
+    "015_p5_eval_platform",
+    "016_p4_oidc_subject_mapping",
+    "017_p6_readonly_tool_dispatch"
+  ],
+  "docs_migrations_lag": false,
+  "container_runtime_status": "NOT_VERIFIED",
+  "metric_definition_version": "metrics-v1",
+  "frozen_evidence_available": true,
+  "registered_issues": [
+    {
+      "issue_id": "ISSUE-DB-IMAGE-DIGEST",
+      "field": "db_image_digest",
+      "value": "UNKNOWN",
+      "note": "容器运行态 NOT_VERIFIED（ENV-NV1）：未实跑 build/compose up，镜像 digest 取不到；deploy/environment-manifest.example.json 的 \"NOT_VERIFIED\" 不是 digest，不借用"
+    },
+    {
+      "issue_id": "ISSUE-CONTAINER-RUNTIME",
+      "field": "container_runtime_status",
+      "value": "NOT_VERIFIED",
+      "note": "容器网络隔离只在配置层核对过，运行态未验证（不声称已验证）"
+    },
+    {
+      "issue_id": "ISSUE-MODEL-VERSION",
+      "field": "model_version",
+      "value": null,
+      "note": "ENV-MODEL：BLOCKED_MODEL_ENV_MISSING，model_commit 为 null；模型版本与相关指标保持 null，不填估计值"
+    }
+  ]
+}

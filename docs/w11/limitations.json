@@ -1,0 +1,54 @@
+{
+  "version": "w11-limitations-v1",
+  "decision": "TECH_PREVIEW_ONLY",
+  "items": [
+    {
+      "item_id": "ENV-PG5432",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "statement": "PostgreSQL LAB（5432）拒绝连接：跨引擎只读诊断的 PG 段未执行，按 NOT_EXECUTED 处置，不判通过、不冒充已执行。",
+      "added_by": null,
+      "reason": null
+    },
+    {
+      "item_id": "ENV-1045",
+      "marker": "NOT_SUPPORTED",
+      "origin": "AUTO",
+      "statement": "DG_ADMIN_DSN（root@localhost）认证失败 1045：库级物理备份恢复不可用，W11 只做逻辑影子回放，不声称物理恢复已支持。",
+      "added_by": null,
+      "reason": null
+    },
+    {
+      "item_id": "ENV-RESIDUE",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "statement": "控制库只追加表存在未观测历史残留（W09 实测 140 行且随时间增长）：W11 各卡继续只追加不清理，所有计数按 task_id/run_id 过滤。",
+      "added_by": null,
+      "reason": null
+    },
+    {
+      "item_id": "ENV-NV1",
+      "marker": "UNKNOWN",
+      "origin": "AUTO",
+      "statement": "容器运行态 NOT_VERIFIED、镜像 digest 为 UNKNOWN：容器网络隔离未在运行态验证，不声称已验证。",
+      "added_by": null,
+      "reason": null
+    },
+    {
+      "item_id": "ENV-MODEL",
+      "marker": "UNKNOWN",
+      "origin": "AUTO",
+      "statement": "模型环境 BLOCKED_MODEL_ENV_MISSING：模型版本与生成时延等指标未测得，相关字段一律保持 null。",
+      "added_by": null,
+      "reason": null
+    },
+    {
+      "item_id": "DECISION-TECH-PREVIEW",
+      "marker": "PARTIAL",
+      "origin": "AUTO",
+      "statement": "发布结论为 TECH_PREVIEW_ONLY：存在未清环境阻塞或红线失败，不得表述为完整 Alpha。",
+      "added_by": null,
+      "reason": null
+    }
+  ]
+}

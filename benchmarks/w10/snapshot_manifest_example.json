@@ -1,0 +1,15 @@
+{
+  "exporter_version": "hikaricp-exporter/1.4.2",
+  "notes": [
+    "人工导入快照（W10-Q4）：不新起 exporter、不新增采集 SDK。",
+    "应用池指标白名单恰好 6 个逻辑键；禁用字段一律剔除。",
+    "本样例为冻结字段示例，未采集任何业务请求正文或用户标识。"
+  ],
+  "sampled_at": "2026-03-01T00:01:00+00:00",
+  "snapshot_digest": "3a54b99be3484c205a21169dcd7188e1a5b64c9a13feec20985000bf1a4daa43",
+  "snapshot_version": "w10-snapshot-v1",
+  "source": "hikaricp",
+  "source_kind": "application_pool",
+  "window_end": "2026-03-01T00:01:00+00:00",
+  "window_start": "2026-03-01T00:00:00+00:00"
+}

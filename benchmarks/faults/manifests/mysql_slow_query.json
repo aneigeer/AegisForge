@@ -1,0 +1,26 @@
+{
+  "scenario_id": "mysql_slow_query",
+  "scenario": "slow_query",
+  "db_engine": "mysql",
+  "db_image_digest": null,
+  "db_version": "8.0.46",
+  "adapter_version": "1.0",
+  "migration_version": "004",
+  "data_seed": 4101,
+  "workload_config": {
+    "rows": 20000,
+    "query_profile": "no_index_aggregate",
+    "db_image_digest_note": "本地 LAB 为直连 MySQL 8.0.46 实例，未使用容器镜像，故 db_image_digest 为 null"
+  },
+  "fault_script_hash": "33f638e45b2f4f05923b24b7f321d958f313a4ef0b58c9ff281470118b35b3f8",
+  "allowed_tools": [
+    "get_query_stats",
+    "explain_query",
+    "get_table_stats"
+  ],
+  "verification_assertions": [
+    "query_stats_or_explain_plan_observable",
+    "sandbox_table_dropped_after_reset"
+  ],
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

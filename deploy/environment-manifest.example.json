@@ -1,0 +1,18 @@
+{
+  "environment_id": "lab_pg_01",
+  "tenant_id_placeholder": "tenant_local",
+  "db_engine": "postgresql",
+  "db_version": "16.4",
+  "image_digest": "NOT_VERIFIED",
+  "network_id": "lab_net",
+  "config_version": "w01-local",
+  "migration_version": "001_harness_core",
+  "created_at": "2026-11-07T00:00:00+00:00",
+  "capabilities": {
+    "pg_stat_statements": "UNKNOWN",
+    "pg_stat_activity": "UNKNOWN",
+    "pg_locks": "UNKNOWN",
+    "pg_blocking_pids": "UNKNOWN"
+  },
+  "status": "LOCAL_DEV_NOT_VERIFIED"
+}

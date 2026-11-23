@@ -1,0 +1,71 @@
+{
+  "manifest_version": "w10-suite-v1",
+  "suite_version": "suite-v1",
+  "testset_version": "testset-v0-preview",
+  "harness_version": "44e4f9d",
+  "repetitions_per_seed": 3,
+  "tool_plan": [
+    "get_connection_snapshot",
+    "get_query_stats",
+    "get_lock_wait_edges",
+    "get_lock_details",
+    "get_transaction_metadata",
+    "explain_query",
+    "get_table_stats"
+  ],
+  "cases": [
+    {
+      "case_id": "mysql-slow_query",
+      "engine": "mysql",
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query",
+      "fault_seed": 4101
+    },
+    {
+      "case_id": "mysql-connection_pressure",
+      "engine": "mysql",
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure",
+      "fault_seed": 4102
+    },
+    {
+      "case_id": "mysql-lock_wait",
+      "engine": "mysql",
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait",
+      "fault_seed": 4103
+    },
+    {
+      "case_id": "pg-slow_query",
+      "engine": "postgresql",
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query",
+      "fault_seed": 4201,
+      "env_blocked_reason": "ENV-PG5432"
+    },
+    {
+      "case_id": "pg-connection_pressure",
+      "engine": "postgresql",
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure",
+      "fault_seed": 4202,
+      "env_blocked_reason": "ENV-PG5432"
+    },
+    {
+      "case_id": "pg-lock_wait",
+      "engine": "postgresql",
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait",
+      "fault_seed": 4203,
+      "env_blocked_reason": "ENV-PG5432"
+    }
+  ],
+  "notes": [
+    "冻结清单（Q-W10-E）：suite_version 与 metrics-vN 版本化；变更须升版本并登记，不得原地改。",
+    "6 个 scenario_id / fault_seed 逐字取自 benchmarks/faults/manifests/*.json 的公开 data_seed；Oracle 真值不在此清单内。",
+    "tool_plan 是适配器 7 个固定只读工具（tool_schema.json:9-17 / core/faults/store.py:32-42），不是 build_observer_registry() 的 10 工具面（设计 D-03）。",
+    "PG 三 case 因 ENV-PG5432 记 env_blocked=true + excluded_reason=ENV-PG5432 + injection_state=UNKNOWN，属 NOT_EXECUTED，不判 FAIL、不冒充通过（W10-Q2 / 设计 §5.2 规则 6）。",
+    "case 顺序由本数组顺序 + repetition 升序确定；禁止用 random 决定顺序或 seed。",
+    "本清单为离线可判资产；模型环境 BLOCKED_MODEL_ENV_MISSING 下 execution_mode=HARNESS，模型侧指标一律未测得。"
+  ]
+}

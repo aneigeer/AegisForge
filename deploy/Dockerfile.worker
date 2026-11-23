@@ -1,0 +1,32 @@
+# DBGuardian 独立 Worker 镜像（W07 收口）
+# 与 API 镜像的差异（刻意如此）：
+#   - 多 COPY 一个 `adapters`：写工具与唯一装配点 build_lab_stack() 在这里，
+#     但 Worker 自己不注册工具，只调用装配点；
+#   - 入口是 `python -m workers`（常驻轮询），不暴露任何端口：
+#     执行链不通过 HTTP 暴露（docs/w06/02-design.md:163,302）。
+#   - 依赖版本以 requirements.lock.txt 为准；不使用浮动 tag。
+FROM python:3.14-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /usr/local/bin/uv
+COPY requirements.lock.txt ./
+RUN uv pip install --system --no-cache -r requirements.lock.txt
+
+COPY pyproject.toml README.md ./
+COPY workers ./workers
+COPY core ./core
+COPY database ./database
+COPY adapters ./adapters
+
+# 非 root 运行（uid 10001，与 API 镜像一致，便于统一 securityContext）。
+RUN useradd --create-home --uid 10001 dguser \
+    && chown -R dguser:dguser /app
+USER dguser
+
+# 无 EXPOSE：Worker 不监听任何端口。
+CMD ["python", "-m", "workers"]

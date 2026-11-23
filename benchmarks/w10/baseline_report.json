@@ -1,0 +1,196 @@
+{
+  "attribution_counts": {
+    "CAPABILITY_FAILURE": 2,
+    "CORRECT_ABSTENTION": 0,
+    "DIAGNOSIS_ERROR": 7,
+    "ENVIRONMENT_FAULT": 9
+  },
+  "blocked_reason": null,
+  "confidence_intervals": {
+    "rca_top1": {
+      "input_digest": "2e7267383c4f1994a4be2f72f3e4faf975004725f9ac92e28a549187cbdcfd0e",
+      "lower": null,
+      "method": "cluster-stratified-percentile",
+      "point": 0.2222222222222222,
+      "resamples": 2000,
+      "seed": 42,
+      "upper": null
+    }
+  },
+  "cost": {
+    "case_count": 9,
+    "cost_units_total": 130820.0,
+    "cost_units_unit": "tokens"
+  },
+  "environment_blocked": [
+    {
+      "affected_cases": [
+        "pg-connection_pressure",
+        "pg-connection_pressure",
+        "pg-connection_pressure",
+        "pg-lock_wait",
+        "pg-lock_wait",
+        "pg-lock_wait",
+        "pg-slow_query",
+        "pg-slow_query",
+        "pg-slow_query"
+      ],
+      "code": "ENV-PG5432",
+      "statement": "PostgreSQL LAB 5432 拒绝连接；相关只读用例记 NOT_EXECUTED，归环境故障，不计入模型失败。"
+    }
+  ],
+  "failure_cases": [
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "cad5ebfacdde265bbbc1117b529023d0202503ebf84c77e9a50599eee1881fe9"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "16e0676302958a3e46682a2e3cb83e1fdf636d956917e082db2e35d1e89c6945"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "16e0676302958a3e46682a2e3cb83e1fdf636d956917e082db2e35d1e89c6945"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "cad5ebfacdde265bbbc1117b529023d0202503ebf84c77e9a50599eee1881fe9"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "cad5ebfacdde265bbbc1117b529023d0202503ebf84c77e9a50599eee1881fe9"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "9b10dd46ba15026d428b040e05664820694381f08eaf82fe2fa4aca2e675fb78"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "mysql-lock_wait",
+      "reason": "CAPABILITY_FAILURE",
+      "tool_sequence_digest": "da32dcde6fcf75b266591a85235b1500e0eb7d442e5bfcb0857bba96ceb20294"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-lock_wait",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "16e0676302958a3e46682a2e3cb83e1fdf636d956917e082db2e35d1e89c6945"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "mysql-lock_wait",
+      "reason": "CAPABILITY_FAILURE",
+      "tool_sequence_digest": "b651b825b135f99144a22cbcd96c0dd40897173e22bbfbd1b5df3d8dba866375"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-slow_query",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-slow_query",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-slow_query",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-connection_pressure",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-connection_pressure",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-connection_pressure",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-lock_wait",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-lock_wait",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "attribution": "ENVIRONMENT_FAULT",
+      "case_id": "pg-lock_wait",
+      "reason": "ENVIRONMENT_FAULT:ENV-PG5432",
+      "tool_sequence_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  ],
+  "harness_version": "44e4f9d",
+  "metric_denominators": {
+    "correct_abstention_rate": 9,
+    "cost_per_verified_task": 0,
+    "evidence_coverage": 9,
+    "false_diagnosis_rate": 9,
+    "false_repair_rate": 0,
+    "rca_top1": 9,
+    "recovery_success_rate": 0,
+    "regression_rate": 0,
+    "schema_valid_rate": 9,
+    "task_p95_ms": 9,
+    "task_success_rate": 9,
+    "unsafe_action_block_rate": 0,
+    "unsafe_action_escape_rate": 0,
+    "verified_task_success_rate": 9
+  },
+  "metrics": {
+    "correct_abstention_rate": 0.0,
+    "evidence_coverage": 0.2,
+    "false_diagnosis_rate": 0.7777777777777778,
+    "rca_top1": 0.2222222222222222,
+    "schema_valid_rate": 1.0,
+    "task_p95_ms": 44417.49,
+    "task_success_rate": 0.0,
+    "verified_task_success_rate": 0.0
+  },
+  "model_commit": "openai_compat/qwen2.5-7b-instruct-baseline:latest/0.1.0",
+  "model_name": "qwen2.5-7b-instruct-baseline:latest",
+  "notes": [
+    "execution_mode=AGENT；模型 qwen2.5-7b-instruct-baseline:latest （model_version=openai_compat/qwen2.5-7b-instruct-baseline:latest/0.1.0）实测，指标仅覆盖真实执行且非环境故障的 case。",
+    "指标口径版本 metrics-v1；机器可读冻结件 benchmarks/w10/metrics-v1.json，人读口径 docs/w10/metrics-definition.md。",
+    "环境故障 case 归 Attribution.ENVIRONMENT_FAULT，单列 environment_blocked，不计入任何模型指标的分子或分母（AC-17③）。",
+    "数据集出口引用 SplitManifest（group split 泄漏实测）与 TokenStats（tokenizer_commit=null 时统计值全 null）。",
+    "SftGate 仅作条件性记录，不改变本报告判定；DPO / RL / 14B 推迟到 Alpha 之后。",
+    "置信区间不可估：冻结测试集每（engine, scenario）只有 1 个 cluster（单一 data_seed），cluster bootstrap 按设计不报 lower==upper 的伪区间，故 lower/upper 保持 null；实测点值与样本量照实给出。"
+  ],
+  "report_version": "w10-baseline-v1",
+  "run_id": "run_69979af0cd824bff1b86f9c5",
+  "status": "COMPLETED",
+  "suite_version": "suite-v1",
+  "testset_version": "testset-v0-preview",
+  "tokenizer_commit": null,
+  "total_cases": 18
+}

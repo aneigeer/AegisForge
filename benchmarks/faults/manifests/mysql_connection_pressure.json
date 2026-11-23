@@ -1,0 +1,26 @@
+{
+  "scenario_id": "mysql_connection_pressure",
+  "scenario": "connection_pressure",
+  "db_engine": "mysql",
+  "db_image_digest": null,
+  "db_version": "8.0.46",
+  "adapter_version": "1.0",
+  "migration_version": "004",
+  "data_seed": 4102,
+  "workload_config": {
+    "sessions": 10,
+    "mode": "idle",
+    "db_image_digest_note": "本地 LAB 为直连 MySQL 8.0.46 实例，未使用容器镜像，故 db_image_digest 为 null"
+  },
+  "fault_script_hash": "84f1a6631e3e768ff13afc6c76394344b173d936c32ee308d70dd26aadd2c6a6",
+  "allowed_tools": [
+    "get_connection_snapshot",
+    "get_transaction_metadata",
+    "get_query_stats"
+  ],
+  "verification_assertions": [
+    "session_count_increases_by_configured_sessions",
+    "session_count_restored_after_reset"
+  ],
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

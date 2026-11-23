@@ -1,0 +1,41 @@
+"""企业级数据库漏洞检测与自进化修复平台 — 4 大架构层 / 10 大核心模块领域实现。"""
+
+from core.platform.ten_modules import (
+    AssetCredentialRecord,
+    AssetVaultManager,
+    AuditEcosystemExporter,
+    ContextualRiskScorer,
+    EvolutionMode,
+    LayeredRemediationGenerator,
+    ModelGatewayReversibleRedactor,
+    MultiDimVulnScanner,
+    PlatformPipelineOrchestrator,
+    RbacApprovalWorkflow,
+    RemediationBundle,
+    RbacRole,
+    SandboxHarnessResult,
+    SandboxHarnessVerifier,
+    ToggleableEvolutionEngine,
+    VulnerabilityFinding,
+    WorkflowDagEngine,
+)
+
+__all__ = [
+    "AssetCredentialRecord",
+    "AssetVaultManager",
+    "AuditEcosystemExporter",
+    "ContextualRiskScorer",
+    "EvolutionMode",
+    "LayeredRemediationGenerator",
+    "ModelGatewayReversibleRedactor",
+    "MultiDimVulnScanner",
+    "PlatformPipelineOrchestrator",
+    "RbacApprovalWorkflow",
+    "RbacRole",
+    "RemediationBundle",
+    "SandboxHarnessResult",
+    "SandboxHarnessVerifier",
+    "ToggleableEvolutionEngine",
+    "VulnerabilityFinding",
+    "WorkflowDagEngine",
+]

@@ -1,0 +1,321 @@
+{
+  "cases": [
+    {
+      "case_id": "mysql_connection_pressure-b1",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_connection_pressure-b2",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_connection_pressure-b3",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_connection_pressure-b4",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_connection_pressure-b5",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_connection_pressure-b6",
+      "engine": "mysql",
+      "fault_seed": 4102,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "mysql_connection_pressure"
+    },
+    {
+      "case_id": "mysql_lock_wait-b1",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_lock_wait-b2",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_lock_wait-b3",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_lock_wait-b4",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_lock_wait-b5",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_lock_wait-b6",
+      "engine": "mysql",
+      "fault_seed": 4103,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "mysql_lock_wait"
+    },
+    {
+      "case_id": "mysql_slow_query-b1",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "mysql_slow_query-b2",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "mysql_slow_query-b3",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "mysql_slow_query-b4",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "mysql_slow_query-b5",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "mysql_slow_query-b6",
+      "engine": "mysql",
+      "fault_seed": 4101,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "mysql_slow_query"
+    },
+    {
+      "case_id": "pg_connection_pressure-b1",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_connection_pressure-b2",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_connection_pressure-b3",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_connection_pressure-b4",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_connection_pressure-b5",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_connection_pressure-b6",
+      "engine": "postgresql",
+      "fault_seed": 4202,
+      "repetitions": 1,
+      "scenario": "connection_pressure",
+      "scenario_id": "pg_connection_pressure"
+    },
+    {
+      "case_id": "pg_lock_wait-b1",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_lock_wait-b2",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_lock_wait-b3",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_lock_wait-b4",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_lock_wait-b5",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_lock_wait-b6",
+      "engine": "postgresql",
+      "fault_seed": 4203,
+      "repetitions": 1,
+      "scenario": "lock_wait",
+      "scenario_id": "pg_lock_wait"
+    },
+    {
+      "case_id": "pg_slow_query-b1",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    },
+    {
+      "case_id": "pg_slow_query-b2",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    },
+    {
+      "case_id": "pg_slow_query-b3",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    },
+    {
+      "case_id": "pg_slow_query-b4",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    },
+    {
+      "case_id": "pg_slow_query-b5",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    },
+    {
+      "case_id": "pg_slow_query-b6",
+      "engine": "postgresql",
+      "fault_seed": 4201,
+      "repetitions": 1,
+      "scenario": "slow_query",
+      "scenario_id": "pg_slow_query"
+    }
+  ],
+  "harness_version": "44e4f9d",
+  "manifest_version": "w10-suite-v2",
+  "provenance": {
+    "base_suite": "suite-v1",
+    "cases_source": "benchmarks/faults/manifests（本地冻结故障清单）",
+    "distinct_fault_seeds": 6,
+    "external_attached": [],
+    "external_sources_supported": [
+      "diagdb",
+      "dbot",
+      "bird_critic",
+      "benchbase"
+    ],
+    "external_unmapped": [],
+    "independence_note": "同一 fault_seed 的重复实验不是独立样本，CI 不得据此收窄",
+    "instances": 36
+  },
+  "repetitions_per_seed": 6,
+  "suite_version": "suite-v2",
+  "testset_version": "testset-v0-preview",
+  "tool_plan": [
+    "get_connection_snapshot",
+    "get_query_stats",
+    "get_lock_wait_edges",
+    "get_lock_details",
+    "get_transaction_metadata",
+    "explain_query",
+    "get_table_stats"
+  ]
+}

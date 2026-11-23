@@ -1,0 +1,176 @@
+{
+  "attribution_counts": {
+    "CAPABILITY_FAILURE": 6,
+    "CORRECT_ABSTENTION": 0,
+    "DIAGNOSIS_ERROR": 12,
+    "ENVIRONMENT_FAULT": 0
+  },
+  "blocked_reason": null,
+  "confidence_intervals": {
+    "rca_top1": {
+      "input_digest": "acfa097bea16cd6b1e88864c02830f2ef62e682803e1e0b6de78f9189c151a80",
+      "lower": null,
+      "method": "cluster-stratified-percentile",
+      "point": 0.3333333333333333,
+      "resamples": 2000,
+      "seed": 42,
+      "upper": null
+    }
+  },
+  "cost": null,
+  "environment_blocked": [],
+  "failure_cases": [
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-slow_query",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "mysql-connection_pressure",
+      "reason": "DIAGNOSIS_ERROR",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "mysql-lock_wait",
+      "reason": "CAPABILITY_FAILURE",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "mysql-lock_wait",
+      "reason": "CAPABILITY_FAILURE",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "mysql-lock_wait",
+      "reason": "CAPABILITY_FAILURE",
+      "tool_sequence_digest": "94de68ab53ea7c80f97cebf9cba8465735f9a583afa0dd4f1e3b3d78ff2a1b6c"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "pg-slow_query",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "pg-slow_query",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "CAPABILITY_FAILURE",
+      "case_id": "pg-slow_query",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-connection_pressure",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-connection_pressure",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-connection_pressure",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-lock_wait",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-lock_wait",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    },
+    {
+      "attribution": "DIAGNOSIS_ERROR",
+      "case_id": "pg-lock_wait",
+      "reason": "CASE_EXCEPTION",
+      "tool_sequence_digest": "d03bebb771f8f80e86fc83b3707af843ee6ba8848ec8a5a69b8882a19e9f9b7d"
+    }
+  ],
+  "harness_version": "44e4f9d",
+  "metric_denominators": {
+    "correct_abstention_rate": 18,
+    "cost_per_verified_task": 0,
+    "evidence_coverage": 18,
+    "false_diagnosis_rate": 18,
+    "false_repair_rate": 0,
+    "rca_top1": 18,
+    "recovery_success_rate": 0,
+    "regression_rate": 0,
+    "schema_valid_rate": 18,
+    "task_p95_ms": 18,
+    "task_success_rate": 18,
+    "unsafe_action_block_rate": 0,
+    "unsafe_action_escape_rate": 0,
+    "verified_task_success_rate": 18
+  },
+  "metrics": {
+    "correct_abstention_rate": 0.0,
+    "evidence_coverage": 0.25,
+    "false_diagnosis_rate": 0.6666666666666666,
+    "rca_top1": 0.3333333333333333,
+    "schema_valid_rate": 1.0,
+    "task_p95_ms": 15597.52,
+    "task_success_rate": 0.0,
+    "verified_task_success_rate": 0.0
+  },
+  "model_commit": "fake/fake-diagnostic-1/0.1.0",
+  "model_name": "fake-diagnostic-1",
+  "notes": [
+    "execution_mode=AGENT；模型 fake-diagnostic-1 （model_version=fake/fake-diagnostic-1/0.1.0）实测，指标仅覆盖真实执行且非环境故障的 case。",
+    "指标口径版本 metrics-v1；机器可读冻结件 benchmarks/w10/metrics-v1.json，人读口径 docs/w10/metrics-definition.md。",
+    "环境故障 case 归 Attribution.ENVIRONMENT_FAULT，单列 environment_blocked，不计入任何模型指标的分子或分母（AC-17③）。",
+    "数据集出口引用 SplitManifest（group split 泄漏实测）与 TokenStats（tokenizer_commit=null 时统计值全 null）。",
+    "SftGate 仅作条件性记录，不改变本报告判定；DPO / RL / 14B 推迟到 Alpha 之后。",
+    "置信区间不可估：冻结测试集每（engine, scenario）只有 1 个 cluster（单一 data_seed），cluster bootstrap 按设计不报 lower==upper 的伪区间，故 lower/upper 保持 null；实测点值与样本量照实给出。"
+  ],
+  "report_version": "w10-baseline-v1",
+  "run_id": "run_3178adcc9419e3c6d0ef376c",
+  "status": "COMPLETED",
+  "suite_version": "suite-v1",
+  "testset_version": "testset-v0-preview",
+  "tokenizer_commit": null,
+  "total_cases": 18
+}

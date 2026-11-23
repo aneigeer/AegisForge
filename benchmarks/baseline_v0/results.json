@@ -1,0 +1,17 @@
+{
+  "results_version": "baseline-results-v0",
+  "status": "NOT_RUN",
+  "scores": null,
+  "metrics": null,
+  "run_id": null,
+  "started_at": null,
+  "finished_at": null,
+  "blocked_reason": "模型权重/云端 GPU 未提供；按范围调整不做训练",
+  "model_commit": null,
+  "testset_version": "testset-v0-preview",
+  "notes": [
+    "占位文件：基线尚未执行，任何指标字段都不得填写或推断。",
+    "在模型权重、云端 GPU 与测试集实际生成之前，本文件不得作为 W04 基线证据。",
+    "禁止把 NOT_RUN 结果当作准确率、F1、延迟或稳定性基线。"
+  ]
+}

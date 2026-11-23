@@ -1,0 +1,18 @@
+{
+  "scenario_id": "pg_slow_query",
+  "expected_root_cause": "fault_lab 沙箱表上的无索引顺序扫描聚合查询导致大量行扫描与查询延迟（slow_query）",
+  "fault_seed": 4201,
+  "injection_params": {
+    "engine": "postgresql",
+    "rows": 20000,
+    "schema": "fault_lab",
+    "table": "fault_slow_query_4201",
+    "query_profile": "no_index_aggregate"
+  },
+  "truth_assertions": [
+    {"name": "plan_node", "expected": "Seq Scan"},
+    {"name": "rows_scanned_min", "expected": 20000, "tolerance": 0.0}
+  ],
+  "isolation_version": "oracle-v1",
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

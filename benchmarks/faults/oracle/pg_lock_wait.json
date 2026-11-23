@@ -1,0 +1,17 @@
+{
+  "scenario_id": "pg_lock_wait",
+  "expected_root_cause": "长事务持有 fault_lab.fault_lock_wait_4203 的行锁，后续会话在行锁上等待（lock_wait）",
+  "fault_seed": 4203,
+  "injection_params": {
+    "engine": "postgresql",
+    "schema": "fault_lab",
+    "table": "fault_lock_wait_4203",
+    "holder_row_id": 1
+  },
+  "truth_assertions": [
+    {"name": "lock_wait_edge_count_min", "expected": 1, "tolerance": 0.0},
+    {"name": "observable_tool", "expected": "get_lock_wait_edges"}
+  ],
+  "isolation_version": "oracle-v1",
+  "created_at": "2026-11-08T00:00:00+00:00"
+}

@@ -1,0 +1,2551 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DBGuardian // AGENT OPS 调度中心</title>
+<style>
+  :root,
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg-void: #05070e;
+    --bg-canvas: #060913;
+    --bg-panel: rgba(11, 16, 29, 0.88);
+    --bg-panel-solid: #0b101d;
+    --bg-elevated: #11192e;
+    --bg-input: #070b15;
+    --border-dim: rgba(0, 240, 255, 0.16);
+    --border-bright: rgba(0, 240, 255, 0.55);
+    --text-primary: #e6f6ff;
+    --text-secondary: #82a4be;
+    --text-muted: #52708a;
+    --accent-cyan: #00f0ff;
+    --accent-magenta: #ff2a6d;
+    --accent-amber: #fcee09;
+    --accent-emerald: #00ff9d;
+    --accent-purple: #b829ff;
+    --glow-cyan: 0 0 14px rgba(0, 240, 255, 0.35);
+    --glow-magenta: 0 0 14px rgba(255, 42, 109, 0.35);
+    --glow-emerald: 0 0 16px rgba(0, 255, 157, 0.45);
+    --scanline-opacity: 0.06;
+    --grid-line: rgba(0, 240, 255, 0.045);
+    --code-hl-bg: rgba(0, 240, 255, 0.16);
+    --code-hl-fg: #00f0ff;
+    --pill-bg: rgba(0, 240, 255, 0.08);
+    --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.55);
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg-void: #eceef2;
+    --bg-canvas: #f5f6f8;
+    --bg-panel: rgba(255, 255, 255, 0.92);
+    --bg-panel-solid: #ffffff;
+    --bg-elevated: #eef1f6;
+    --bg-input: #f8f9fb;
+    --border-dim: rgba(17, 24, 39, 0.14);
+    --border-bright: rgba(0, 119, 255, 0.55);
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --accent-cyan: #0066cc;
+    --accent-magenta: #e11d48;
+    --accent-amber: #d97706;
+    --accent-emerald: #059669;
+    --accent-purple: #7c3aed;
+    --glow-cyan: 0 0 10px rgba(0, 102, 204, 0.22);
+    --glow-magenta: 0 0 10px rgba(225, 29, 72, 0.22);
+    --glow-emerald: 0 0 12px rgba(5, 150, 105, 0.3);
+    --scanline-opacity: 0.015;
+    --grid-line: rgba(15, 23, 42, 0.05);
+    --code-hl-bg: #111827;
+    --code-hl-fg: #f8fafc;
+    --pill-bg: rgba(0, 102, 204, 0.08);
+    --shadow-card: 0 6px 22px rgba(15, 23, 42, 0.07);
+  }
+
+  /* View Transitions radial theme reveal */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(root) { z-index: 1; }
+  ::view-transition-new(root) { z-index: 9999; }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, "Microsoft YaHei", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle cyberpunk grid + CRT scanlines */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 900;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 240, 255, var(--scanline-opacity)) 3px,
+        transparent 4px
+      );
+  }
+
+  .app-shell {
+    max-width: 1620px;
+    margin: 0 auto;
+    padding: 12px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ==================== HERO RADIAL OPS VIEWPORT ==================== */
+  .ops-stage {
+    position: relative;
+    border: 1px solid var(--border-dim);
+    background: var(--bg-canvas);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .ops-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    z-index: 1;
+  }
+
+  .ops-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    background: var(--bg-canvas);
+  }
+
+  #ops-canvas {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  /* Floating Top-Left HUD */
+  .hud-top-left {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .hud-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hud-brand {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1.8px;
+    color: var(--text-primary);
+    text-shadow: var(--glow-cyan);
+    margin: 0;
+  }
+
+  .hud-brand .slash {
+    color: var(--accent-cyan);
+    margin: 0 4px;
+  }
+
+  .hud-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: var(--pill-bg);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .hud-subtitle {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.6px;
+  }
+
+  .hud-metrics {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 8px 16px;
+    width: fit-content;
+    padding: 8px 12px;
+    border: 1px solid var(--border-dim);
+    background: var(--bg-panel);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+
+  .hud-stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .hud-stat-val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+
+  .hud-stat-val .accent {
+    color: var(--accent-cyan);
+  }
+  .hud-stat-val .warn {
+    color: var(--accent-magenta);
+  }
+  .hud-stat-val .ok {
+    color: var(--accent-emerald);
+  }
+  .hud-stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* Floating Top-Right Controls */
+  .hud-top-right {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cyber-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s, transform 0.12s;
+    backdrop-filter: blur(6px);
+    user-select: none;
+  }
+
+  .cyber-btn:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: var(--glow-cyan);
+    color: var(--accent-cyan);
+  }
+
+  .cyber-btn:active {
+    transform: translateY(1px);
+  }
+
+  .cyber-btn.primary {
+    border-color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.12);
+    color: var(--accent-cyan);
+  }
+  [data-theme="light"] .cyber-btn.primary {
+    background: rgba(0, 102, 204, 0.1);
+  }
+
+  .cyber-btn.active {
+    background: var(--accent-cyan);
+    color: #05070e;
+    border-color: var(--accent-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+  [data-theme="light"] .cyber-btn.active {
+    color: #ffffff;
+  }
+
+  /* ==================== THEME TOGGLE BUTTON (SUN <-> MOON) ==================== */
+  .theme-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-bright);
+    background: var(--bg-panel);
+    color: var(--accent-amber);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: var(--glow-cyan);
+    transition: border-color 0.25s, color 0.35s, background 0.35s, transform 0.2s;
+  }
+
+  [data-theme="dark"] .theme-toggle {
+    color: var(--accent-cyan);
+  }
+  [data-theme="light"] .theme-toggle {
+    color: #d97706;
+  }
+
+  .theme-toggle:hover {
+    transform: scale(1.08);
+  }
+
+  .theme-icon-wrap {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  [data-theme="dark"] .theme-icon-wrap {
+    transform: rotate(0deg);
+  }
+
+  [data-theme="light"] .theme-icon-wrap {
+    transform: rotate(180deg);
+  }
+
+  .theme-svg {
+    width: 20px;
+    height: 20px;
+    overflow: visible;
+  }
+
+  .theme-svg .sun-core {
+    transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: center;
+  }
+
+  .theme-svg .moon-cutout {
+    transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), r 0.5s ease;
+  }
+
+  .theme-svg .sun-rays {
+    transform-origin: center;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+  }
+
+  /* Dark mode shows Moon */
+  [data-theme="dark"] .theme-svg .sun-core {
+    transform: scale(1.22);
+  }
+  [data-theme="dark"] .theme-svg .moon-cutout {
+    transform: translate(-5px, -3px);
+  }
+  [data-theme="dark"] .theme-svg .sun-rays {
+    opacity: 0;
+    transform: scale(0.35) rotate(-90deg);
+  }
+
+  /* Light mode shows Sun */
+  [data-theme="light"] .theme-svg .sun-core {
+    transform: scale(0.82);
+  }
+  [data-theme="light"] .theme-svg .moon-cutout {
+    transform: translate(10px, -10px);
+  }
+  [data-theme="light"] .theme-svg .sun-rays {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  /* Fallback radial ripple overlay when startViewTransition unavailable */
+  .theme-ripple-fallback {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 99999;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.62s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+  }
+
+  /* Floating Bottom-Right HUD */
+  .hud-bottom-right {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    z-index: 10;
+    text-align: right;
+    padding: 10px 14px;
+    border: 1px solid var(--border-dim);
+    background: var(--bg-panel);
+    backdrop-filter: blur(8px);
+    min-width: 230px;
+  }
+
+  .hud-stability {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.9px;
+  }
+
+  .hud-review-state {
+    margin-top: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .hud-review-state .hi {
+    color: var(--accent-cyan);
+  }
+  .hud-review-state .pending {
+    color: var(--accent-magenta);
+  }
+
+  .hud-node-pill {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--accent-emerald);
+    letter-spacing: 0.5px;
+  }
+
+  /* ==================== 4-PANEL BOTTOM TELEMETRY DOCK ==================== */
+  .telemetry-dock {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr 1.15fr 1.1fr;
+    border-top: 1px solid var(--border-dim);
+    background: var(--bg-panel-solid);
+  }
+
+  @media (max-width: 1180px) {
+    .telemetry-dock {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 680px) {
+    .telemetry-dock {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .dock-panel {
+    padding: 10px 12px;
+    border-right: 1px solid var(--border-dim);
+    display: flex;
+    flex-direction: column;
+    min-height: 175px;
+    position: relative;
+  }
+  .dock-panel:last-child { border-right: none; }
+
+  .dock-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed var(--border-dim);
+  }
+
+  .dock-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+  }
+  .dock-title .cn {
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 5px;
+  }
+
+  .dock-meta {
+    font-size: 10px;
+    color: var(--accent-cyan);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Panel 1: Task Feed */
+  .feed-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    overflow-y: auto;
+    max-height: 132px;
+  }
+
+  .feed-item {
+    display: grid;
+    grid-template-columns: 42px 58px 1fr;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    align-items: center;
+  }
+  .feed-item:hover {
+    background: var(--pill-bg);
+  }
+  .feed-seq { color: var(--text-muted); }
+  .feed-verb { font-weight: 700; color: var(--accent-cyan); }
+  .feed-verb.warn { color: var(--accent-magenta); }
+  .feed-verb.ok { color: var(--accent-emerald); }
+  .feed-desc {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Panel 2: Particle Advection Mini Canvas */
+  .advect-wrap {
+    flex: 1;
+    position: relative;
+    border: 1px solid var(--border-dim);
+    background: var(--bg-input);
+    min-height: 92px;
+    overflow: hidden;
+  }
+  #advect-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .advect-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .advect-controls .cyber-btn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  /* Panel 3: Live Workspace Code */
+  .code-viewer {
+    margin: 0;
+    padding: 6px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-dim);
+    font-size: 11px;
+    line-height: 1.55;
+    overflow: auto;
+    flex: 1;
+    max-height: 134px;
+    color: var(--text-secondary);
+  }
+  .code-line {
+    display: flex;
+    gap: 10px;
+    padding: 0 4px;
+  }
+  .code-line.active-line {
+    background: var(--code-hl-bg);
+    color: var(--code-hl-fg);
+  }
+  .code-ln {
+    color: var(--text-muted);
+    min-width: 24px;
+    user-select: none;
+  }
+  .code-cursor {
+    display: inline-block;
+    width: 6px;
+    height: 12px;
+    background: var(--accent-cyan);
+    vertical-align: middle;
+    animation: blink 1s steps(2, start) infinite;
+  }
+  @keyframes blink { to { visibility: hidden; } }
+
+  /* Panel 4: 12 Agents / Sub-modules Dispatch */
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 10px;
+    font-size: 11px;
+  }
+  .agent-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 2px 4px;
+    border-bottom: 1px dotted var(--border-dim);
+    cursor: pointer;
+  }
+  .agent-row:hover {
+    background: var(--pill-bg);
+  }
+  .agent-id { color: var(--text-muted); font-size: 10px; }
+  .agent-name { color: var(--text-primary); font-weight: 600; flex: 1; }
+  .agent-state {
+    font-size: 10px;
+    padding: 0 5px;
+    border-radius: 2px;
+  }
+  .agent-state.running { color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.4); }
+  .agent-state.armed { color: var(--accent-emerald); border: 1px solid rgba(0, 255, 157, 0.4); }
+  .agent-state.review { color: var(--accent-magenta); border: 1px solid rgba(255, 42, 109, 0.45); }
+  .agent-state.idle { color: var(--text-muted); border: 1px solid var(--border-dim); }
+
+  /* ==================== COMMAND DECK (OPERATIONAL CARDS) ==================== */
+  .command-deck {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 1040px) {
+    .command-deck { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg-panel-solid);
+    border: 1px solid var(--border-dim);
+    border-radius: 6px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 48px;
+    height: 2px;
+    background: var(--accent-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+  .card.danger-accent::before {
+    background: var(--accent-magenta);
+    box-shadow: var(--glow-magenta);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .card h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card h2 .idx {
+    color: var(--accent-cyan);
+    font-size: 11px;
+    padding: 1px 5px;
+    border: 1px solid var(--border-bright);
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 7px 0 3px;
+    letter-spacing: 0.4px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-dim);
+    border-radius: 3px;
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .row > * { flex: 1; }
+
+  .btn-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+  }
+
+  pre.console-out {
+    margin: 10px 0 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    padding: 10px;
+    max-height: 190px;
+    overflow: auto;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .table-wrap {
+    margin-top: 10px;
+    overflow-x: auto;
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border-dim);
+    vertical-align: middle;
+  }
+
+  th {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border-dim);
+    background: var(--pill-bg);
+    color: var(--accent-cyan);
+  }
+  .pill.status-PROPOSED, .pill.status-PENDING {
+    color: var(--accent-amber);
+    border-color: rgba(252, 238, 9, 0.45);
+    background: rgba(252, 238, 9, 0.08);
+  }
+  [data-theme="light"] .pill.status-PROPOSED,
+  [data-theme="light"] .pill.status-PENDING {
+    color: #b45309;
+    border-color: rgba(217, 119, 6, 0.45);
+  }
+  .pill.status-INDEXED, .pill.status-APPROVED, .pill.status-COMPLETED {
+    color: var(--accent-emerald);
+    border-color: rgba(0, 255, 157, 0.45);
+    background: rgba(0, 255, 157, 0.08);
+  }
+  .pill.status-REVOKED, .pill.status-REJECTED, .pill.status-FAILED {
+    color: var(--accent-magenta);
+    border-color: rgba(255, 42, 109, 0.45);
+    background: rgba(255, 42, 109, 0.08);
+  }
+
+  .muted { color: var(--text-muted); font-size: 11px; }
+
+  /* ==================== HOLD-TO-CONFIRM / HOLD-TO-DELETE BUTTON ==================== */
+  .hold-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 11px;
+    min-height: 28px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--hold-color, var(--accent-cyan));
+    background: var(--bg-input);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+    overflow: visible;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.12s;
+  }
+
+  .hold-btn.variant-confirm {
+    --hold-color: var(--accent-cyan);
+    --hold-done: var(--accent-emerald);
+    --hold-bg-active: rgba(0, 240, 255, 0.1);
+  }
+
+  .hold-btn.variant-promote {
+    --hold-color: var(--accent-emerald);
+    --hold-done: var(--accent-emerald);
+    --hold-bg-active: rgba(0, 255, 157, 0.12);
+  }
+
+  .hold-btn.variant-danger {
+    --hold-color: var(--accent-magenta);
+    --hold-done: var(--accent-magenta);
+    --hold-bg-active: rgba(255, 42, 109, 0.12);
+  }
+
+  .hold-btn:hover {
+    border-color: var(--hold-color);
+  }
+
+  .hold-btn.is-holding {
+    background: var(--hold-bg-active);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--hold-color) 35%, transparent);
+    transform: scale(0.985);
+  }
+
+  .hold-btn.is-rebounding {
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(1.02);
+  }
+
+  .hold-btn.is-confirmed {
+    color: #05070e;
+    background: var(--hold-done);
+    border-color: var(--hold-done);
+    box-shadow: var(--glow-emerald);
+  }
+  .hold-btn.variant-danger.is-confirmed {
+    color: #ffffff;
+    box-shadow: var(--glow-magenta);
+  }
+
+  .hold-btn.is-shaking {
+    animation: microShake 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  .hold-btn.is-error {
+    color: var(--accent-magenta);
+    border-color: var(--accent-magenta);
+    animation: microShake 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  @keyframes microShake {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+    18% { transform: translate3d(-2.5px, 0.5px, 0) rotate(-0.8deg); }
+    36% { transform: translate3d(2.5px, -0.5px, 0) rotate(0.8deg); }
+    54% { transform: translate3d(-2px, 0, 0) rotate(-0.5deg); }
+    72% { transform: translate3d(1.8px, 0, 0) rotate(0.4deg); }
+    88% { transform: translate3d(-0.8px, 0, 0) rotate(0deg); }
+  }
+
+  /* Perimeter SVG stroke progress around the button border */
+  .hold-svg {
+    position: absolute;
+    inset: -2px;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .hold-track {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 2.4px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .hold-progress {
+    fill: none;
+    stroke: var(--hold-color);
+    stroke-width: 2.6px;
+    stroke-linecap: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 4px var(--hold-color));
+  }
+
+  .hold-btn.is-confirmed .hold-progress {
+    stroke: var(--hold-done);
+    stroke-dashoffset: 0;
+  }
+
+  .hold-label {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .sub-tabs {
+    display: flex;
+    gap: 6px;
+  }
+
+  .toast-stack {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 9500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 380px;
+  }
+
+  .toast {
+    padding: 9px 12px;
+    font-size: 11px;
+    border-radius: 4px;
+    background: var(--bg-panel-solid);
+    border: 1px solid var(--accent-cyan);
+    color: var(--text-primary);
+    box-shadow: var(--glow-cyan), var(--shadow-card);
+    animation: toastIn 0.25s ease-out;
+  }
+  .toast.ok { border-color: var(--accent-emerald); box-shadow: var(--glow-emerald); }
+  .toast.err { border-color: var(--accent-magenta); box-shadow: var(--glow-magenta); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- ==================== HERO CYBERPUNK WORKFLOW STAGE ==================== -->
+  <div class="ops-stage">
+    <div class="ops-canvas-wrap">
+      <canvas id="ops-canvas"></canvas>
+
+      <!-- Top-Left HUD -->
+      <div class="hud-top-left">
+        <div class="hud-title-row">
+          <h1 class="hud-brand">DBGUARDIAN <span class="slash">/</span> AGENT OPS 调度中心</h1>
+          <span class="hud-tag" id="hud-mode-tag">CYBER-OPS · LIVE</span>
+        </div>
+        <div class="hud-subtitle" id="hud-clock">
+          TASKS → REDACT → DIAGNOSE → WIKI(两级确认) → GATEWAY → VERIFY · 00:00:00
+        </div>
+
+        <div class="hud-metrics">
+          <div>
+            <div class="hud-stat-label">TASKS 任务</div>
+            <div class="hud-stat-val"><span class="accent" id="m-tasks">0</span></div>
+          </div>
+          <div>
+            <div class="hud-stat-label">BYOK 模型</div>
+            <div class="hud-stat-val"><span class="ok" id="m-providers">0</span><span class="hud-stat-sub" id="m-providers-sub"> / 0</span></div>
+          </div>
+          <div>
+            <div class="hud-stat-label">WIKI 知识</div>
+            <div class="hud-stat-val"><span id="m-wiki">0</span><span class="hud-stat-sub" id="m-wiki-sub"> / 0</span></div>
+          </div>
+          <div>
+            <div class="hud-stat-label">EVAL 评测</div>
+            <div class="hud-stat-val"><span id="m-evals">0</span></div>
+          </div>
+          <div>
+            <div class="hud-stat-label">PENDING 审批</div>
+            <div class="hud-stat-val"><span class="warn" id="m-approvals">0</span></div>
+          </div>
+          <div>
+            <div class="hud-stat-label">ENGINES 双引擎</div>
+            <div class="hud-stat-val"><span class="accent">2</span><span class="hud-stat-sub"> PG/MySQL</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-Right Controls + Theme Toggle -->
+      <div class="hud-top-right">
+        <button class="cyber-btn active" id="btn-resume" type="button">恢复</button>
+        <button class="cyber-btn" id="btn-pause" type="button">暂停</button>
+        <button class="cyber-btn" id="btn-refresh-all" type="button">同步数据</button>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          type="button"
+          title="切换主题（太阳 / 月亮）"
+          aria-label="切换明暗主题"
+        >
+          <span class="theme-icon-wrap">
+            <svg class="theme-svg" viewBox="0 0 24 24" fill="none">
+              <defs>
+                <mask id="moon-mask">
+                  <rect x="0" y="0" width="24" height="24" fill="white" />
+                  <circle class="moon-cutout" cx="17" cy="8" r="6" fill="black" />
+                </mask>
+              </defs>
+              <circle class="sun-core" cx="12" cy="12" r="5.6" fill="currentColor" mask="url(#moon-mask)" />
+              <g class="sun-rays" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="12" y1="1.8" x2="12" y2="4.2" />
+                <line x1="12" y1="19.8" x2="12" y2="22.2" />
+                <line x1="1.8" y1="12" x2="4.2" y2="12" />
+                <line x1="19.8" y1="12" x2="22.2" y2="12" />
+                <line x1="4.8" y1="4.8" x2="6.5" y2="6.5" />
+                <line x1="17.5" y1="17.5" x2="19.2" y2="19.2" />
+                <line x1="4.8" y1="19.2" x2="6.5" y2="17.5" />
+                <line x1="17.5" y1="6.5" x2="19.2" y2="4.8" />
+              </g>
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <!-- Bottom-Right HUD -->
+      <div class="hud-bottom-right">
+        <div class="hud-stability">STABILITY INDEX · 稳定性 · <span id="hud-stability-val">98.4%</span></div>
+        <div class="hud-review-state">
+          <span class="hi" id="hud-indexed-cnt">0</span> 已确认 ·
+          <span class="pending" id="hud-pending-cnt">0</span> 待复核
+        </div>
+        <div class="hud-node-pill" id="hud-focus-node">NODE #02 · DIAGNOSE &amp; WIKI [ACTIVE]</div>
+      </div>
+    </div>
+
+    <!-- 4-Panel Bottom Telemetry Dock -->
+    <div class="telemetry-dock">
+      <!-- 1. TASK FEED -->
+      <div class="dock-panel">
+        <div class="dock-head">
+          <span class="dock-title">TASK FEED <span class="cn">任务流</span></span>
+          <span class="dock-meta" id="feed-count">LIVE BUS</span>
+        </div>
+        <ul class="feed-list" id="task-feed"></ul>
+      </div>
+
+      <!-- 2. ADVECTION / PARTICLE SOLVER -->
+      <div class="dock-panel">
+        <div class="dock-head">
+          <span class="dock-title">ADVECTION / SOLVER <span class="cn">粒子流场</span></span>
+          <span class="dock-meta" id="advect-fps">60 FPS</span>
+        </div>
+        <div class="advect-wrap">
+          <canvas id="advect-canvas"></canvas>
+        </div>
+        <div class="advect-controls">
+          <button class="cyber-btn active" type="button" data-solver="advect">ADVECT</button>
+          <button class="cyber-btn" type="button" data-solver="project">PROJECT</button>
+          <button class="cyber-btn" type="button" data-solver="rerun">RERUN</button>
+        </div>
+      </div>
+
+      <!-- 3. WORKSPACE CODE -->
+      <div class="dock-panel">
+        <div class="dock-head">
+          <span class="dock-title">WORKSPACE <span class="cn">执行代码</span></span>
+          <span class="dock-meta" id="code-file-name">dispatch.py · 12 lines</span>
+        </div>
+        <div class="code-viewer" id="workspace-code"></div>
+      </div>
+
+      <!-- 4. 12 AGENTS / DISPATCH -->
+      <div class="dock-panel">
+        <div class="dock-head">
+          <span class="dock-title">12 MODULES / DISPATCH <span class="cn">调度矩阵</span></span>
+          <span class="dock-meta">SHARED BUS</span>
+        </div>
+        <div class="agents-grid" id="agents-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== OPERATIONAL COMMAND DECK ==================== -->
+  <main class="command-deck">
+    <!-- ① BYOK Model Providers -->
+    <section class="card">
+      <div class="card-head">
+        <h2><span class="idx">01</span> 模型供应商（BYOK）</h2>
+        <span class="muted">SSRF 防护 · 密钥加密 · 三档协议降级</span>
+      </div>
+      <div class="row">
+        <div>
+          <label>供应商名称</label>
+          <input id="p-name" placeholder="corp-deepseek-gateway" />
+        </div>
+        <div>
+          <label>base_url（https，私网需 allowlist）</label>
+          <input id="p-url" placeholder="https://api.example.com/v1" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>api_key（仅加密入库，只回显掩码）</label>
+          <input id="p-key" type="password" placeholder="sk-..." />
+        </div>
+        <div style="max-width:96px">
+          <label>超时(s)</label>
+          <input id="p-timeout" type="number" value="60" />
+        </div>
+        <div style="max-width:96px">
+          <label>流式 SSE</label>
+          <select id="p-stream">
+            <option value="true">是</option>
+            <option value="false">否</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-bar">
+        <button class="cyber-btn primary" type="button" onclick="createProvider()">保存供应商</button>
+        <button class="cyber-btn" type="button" onclick="loadProviders()">刷新列表</button>
+      </div>
+      <div class="table-wrap">
+        <table id="providers">
+          <thead><tr><th>ID</th><th>名称</th><th>掩码</th><th>状态</th><th>操作（危险操作需长按）</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ② Diagnosis Runner -->
+    <section class="card">
+      <div class="card-head">
+        <h2><span class="idx">02</span> 发起诊断与实时任务</h2>
+        <span class="muted">只读 R0 诊断 · 全链路脱敏 · Wiki 注入</span>
+      </div>
+      <label>诊断目标（自然语言故障描述）</label>
+      <textarea id="goal" rows="3">订单更新语句持续超时，怀疑存在锁等待或慢查询全表扫描</textarea>
+      <div class="btn-bar">
+        <button class="cyber-btn primary" type="button" onclick="runDiagnosis()">创建并运行诊断</button>
+        <button class="cyber-btn" type="button" onclick="loadTasks()">刷新任务流</button>
+        <button class="cyber-btn" type="button" onclick="triggerPulseBurst('diagnose')">注入可视化脉冲</button>
+      </div>
+      <pre class="console-out" id="run-out">尚未运行 · 等待调度指令...</pre>
+    </section>
+
+    <!-- ③ Wiki Multi-Confirmation & R2 Approvals (HOLD-TO-CONFIRM) -->
+    <section class="card danger-accent">
+      <div class="card-head">
+        <h2><span class="idx">03</span> Wiki 进化复核（两级确认）&amp; R2 审批</h2>
+        <div class="sub-tabs">
+          <button class="cyber-btn active" id="tab-wiki" type="button" onclick="switchReviewTab('wiki')">Wiki 两级确认</button>
+          <button class="cyber-btn" id="tab-approvals" type="button" onclick="switchReviewTab('approvals')">R2 修复审批</button>
+        </div>
+      </div>
+
+      <!-- Wiki Panel -->
+      <div id="panel-wiki">
+        <div class="row">
+          <div>
+            <label>知识状态过滤</label>
+            <select id="k-status" onchange="loadKnowledge()">
+              <option value="PROPOSED">PROPOSED（待两级确认）</option>
+              <option value="INDEXED">INDEXED（已生效）</option>
+              <option value="REVOKED">REVOKED（已撤销）</option>
+              <option value="">全部</option>
+            </select>
+          </div>
+          <div style="flex:0 0 auto">
+            <button class="cyber-btn" type="button" onclick="loadKnowledge()">刷新队列</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="knowledge">
+            <thead><tr><th>knowledge_id</th><th>状态</th><th>确认轨迹</th><th>长按操作（未满松开回弹）</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin:8px 0 0">
+          安全门禁：阶段 1/2 必须由<strong>不同主体</strong>长按确认；同一账号重复确认将被服务端拒绝；撤销需长按防误触。
+        </p>
+        <div class="btn-bar" id="hold-sandbox-bar" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-dim)">
+          <span class="muted">交互门禁自检：</span>
+        </div>
+      </div>
+
+      <!-- Approvals Panel -->
+      <div id="panel-approvals" style="display:none">
+        <div class="btn-bar" style="margin-top:0">
+          <button class="cyber-btn" type="button" onclick="loadApprovals()">刷新 R2 审批单</button>
+          <span class="muted">一次性消费 · 摘要绑定 · 长按批准/拒绝</span>
+        </div>
+        <div class="table-wrap">
+          <table id="approvals">
+            <thead><tr><th>approval_id</th><th>动作</th><th>状态</th><th>长按审批操作</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ④ Evaluation Middle-Platform -->
+    <section class="card">
+      <div class="card-head">
+        <h2><span class="idx">04</span> 模型候选对比（上线前评测中台）</h2>
+        <span class="muted">仅比对实测指标 · 缺测(null)不参与判定</span>
+      </div>
+      <div class="row">
+        <div>
+          <label>基线 run_id</label>
+          <input id="e-base" placeholder="run_baseline..." />
+        </div>
+        <div>
+          <label>候选 run_id</label>
+          <input id="e-cand" placeholder="run_candidate..." />
+        </div>
+      </div>
+      <div class="btn-bar">
+        <button class="cyber-btn primary" type="button" onclick="compareRuns()">执行候选对比</button>
+        <button class="cyber-btn" type="button" onclick="executeEvalPlan()">触发套件评测计划</button>
+        <button class="cyber-btn" type="button" onclick="loadRuns()">刷新评测记录</button>
+      </div>
+      <div class="table-wrap">
+        <table id="runs">
+          <thead><tr><th>run_id</th><th>候选标签</th><th>模型</th><th>状态</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <pre class="console-out" id="cmp-out">尚未对比 · 填入基线与候选 run_id 或点击表格行自动回填</pre>
+    </section>
+  </main>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+/* ============================================================================
+   UTILITIES & TOASTS
+   ============================================================================ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const show = (el, data) => { el.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2); };
+
+function toast(msg, kind = "info") {
+  const stack = $("toast-stack");
+  const node = document.createElement("div");
+  node.className = `toast ${kind}`;
+  node.textContent = msg;
+  stack.appendChild(node);
+  setTimeout(() => {
+    node.style.transition = "opacity 0.25s, transform 0.25s";
+    node.style.opacity = "0";
+    node.style.transform = "translateY(6px)";
+    setTimeout(() => node.remove(), 260);
+  }, 3200);
+}
+
+async function api(path, options = {}) {
+  try {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    const text = await response.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = text; }
+    return { ok: response.ok, status: response.status, body };
+  } catch (err) {
+    return { ok: false, status: 0, body: { error: String(err) } };
+  }
+}
+
+/* ============================================================================
+   THEME TOGGLE: SUN <-> MOON MORPH + RADIAL CIRCLE DIFFUSION
+   ============================================================================ */
+const THEME_KEY = "dg_console_theme";
+function getTheme() {
+  return document.documentElement.getAttribute("data-theme") || "dark";
+}
+function setThemeImmediate(next) {
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem(THEME_KEY, next); } catch {}
+  syncCanvasPalette();
+}
+
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.setAttribute("data-theme", saved);
+    }
+  } catch {}
+})();
+
+$("theme-toggle").addEventListener("click", (event) => {
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const maxRadius = Math.hypot(
+    Math.max(cx, window.innerWidth - cx),
+    Math.max(cy, window.innerHeight - cy)
+  );
+  const nextTheme = getTheme() === "dark" ? "light" : "dark";
+
+  if (typeof document.startViewTransition === "function") {
+    const transition = document.startViewTransition(() => {
+      setThemeImmediate(nextTheme);
+    });
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${cx}px ${cy}px)`,
+            `circle(${maxRadius}px at ${cx}px ${cy}px)`,
+          ],
+        },
+        {
+          duration: 640,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          pseudoElement: "::view-transition-new(root)",
+        }
+      );
+    }).catch(() => {});
+  } else {
+    // Graceful radial ripple fallback for browsers without View Transitions API
+    const ripple = document.createElement("div");
+    ripple.className = "theme-ripple-fallback";
+    const size = maxRadius * 2;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.left = `${cx}px`;
+    ripple.style.top = `${cy}px`;
+    ripple.style.background = nextTheme === "dark" ? "#05070e" : "#f5f6f8";
+    document.body.appendChild(ripple);
+    requestAnimationFrame(() => {
+      ripple.style.transform = "translate(-50%, -50%) scale(1)";
+    });
+    setTimeout(() => setThemeImmediate(nextTheme), 260);
+    setTimeout(() => {
+      ripple.style.opacity = "0";
+      setTimeout(() => ripple.remove(), 300);
+    }, 520);
+  }
+});
+
+/* ============================================================================
+   HOLD-TO-CONFIRM / HOLD-TO-DELETE COMPONENT
+   - Progress fills smoothly along perimeter SVG border while held
+   - Releasing before 100% springs/rebounds back to 0 cleanly
+   - Reaching 100% switches to confirmed state + micro-shake + haptic vibrate
+   ============================================================================ */
+const HOLD_REGISTRY = new Map();
+let holdUid = 0;
+
+function renderHoldButton({ label, doneLabel, variant = "confirm", duration = 850, onConfirm }) {
+  const id = `hb_${++holdUid}`;
+  HOLD_REGISTRY.set(id, { label, doneLabel: doneLabel || "✓ 已确认", variant, duration, onConfirm });
+  return `
+    <button
+      type="button"
+      class="hold-btn variant-${variant}"
+      data-hold-id="${id}"
+      data-hold-ms="${duration}"
+      title="按住 ${(duration / 1000).toFixed(1)} 秒执行，未满松开将回弹取消"
+    >
+      <svg class="hold-svg" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="hold-track" x="1.5" y="1.5" width="97" height="37" rx="4" ry="4" pathLength="100"></rect>
+        <rect class="hold-progress" x="1.5" y="1.5" width="97" height="37" rx="4" ry="4" pathLength="100"></rect>
+      </svg>
+      <span class="hold-label">${esc(label)}</span>
+    </button>
+  `;
+}
+
+function attachHoldHandlers(container) {
+  container.querySelectorAll(".hold-btn[data-hold-id]").forEach((btn) => {
+    if (btn.dataset.holdBound === "1") return;
+    btn.dataset.holdBound = "1";
+
+    const cfg = HOLD_REGISTRY.get(btn.dataset.holdId);
+    if (!cfg) return;
+    const progressEl = btn.querySelector(".hold-progress");
+    const labelEl = btn.querySelector(".hold-label");
+
+    let progress = 0;
+    let holding = false;
+    let locked = false;
+    let rafId = null;
+    let lastTs = 0;
+
+    const setVisual = (p) => {
+      const clamped = Math.max(0, Math.min(1, p));
+      progressEl.style.strokeDashoffset = String(100 * (1 - clamped));
+    };
+
+    const stopRaf = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
+
+    const startRebound = () => {
+      stopRaf();
+      btn.classList.remove("is-holding");
+      if (progress <= 0.001) {
+        setVisual(0);
+        return;
+      }
+      btn.classList.add("is-rebounding");
+      const startP = progress;
+      const startTime = performance.now();
+      const reboundDur = Math.max(180, 320 * startP);
+
+      const stepBack = (now) => {
+        const t = Math.min(1, (now - startTime) / reboundDur);
+        // Elastic damped spring back to 0
+        const damped = Math.pow(1 - t, 2.4) * Math.cos(t * Math.PI * 1.4);
+        progress = Math.max(0, startP * damped);
+        setVisual(progress);
+        if (t < 1 && !holding) {
+          rafId = requestAnimationFrame(stepBack);
+        } else if (!holding) {
+          progress = 0;
+          setVisual(0);
+          btn.classList.remove("is-rebounding");
+          labelEl.textContent = cfg.label;
+        }
+      };
+      rafId = requestAnimationFrame(stepBack);
+    };
+
+    const completeHold = async () => {
+      stopRaf();
+      holding = false;
+      locked = true;
+      progress = 1;
+      setVisual(1);
+      btn.classList.remove("is-holding", "is-rebounding", "is-error");
+      btn.classList.add("is-confirmed", "is-shaking");
+      labelEl.textContent = cfg.doneLabel;
+
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate([22, 18, 35]); } catch {}
+      }
+      triggerPulseBurst(cfg.variant === "danger" ? "danger" : "confirm");
+
+      setTimeout(() => btn.classList.remove("is-shaking"), 380);
+
+      try {
+        const ok = await cfg.onConfirm(btn);
+        if (ok === false) {
+          btn.classList.remove("is-confirmed");
+          btn.classList.add("is-error");
+          labelEl.textContent = "已拦截";
+          setTimeout(() => {
+            locked = false;
+            progress = 0;
+            setVisual(0);
+            btn.classList.remove("is-error");
+            labelEl.textContent = cfg.label;
+          }, 1100);
+        }
+      } catch (err) {
+        btn.classList.remove("is-confirmed");
+        btn.classList.add("is-error");
+        toast(`操作异常: ${err}`, "err");
+        setTimeout(() => {
+          locked = false;
+          progress = 0;
+          setVisual(0);
+          btn.classList.remove("is-error");
+          labelEl.textContent = cfg.label;
+        }, 1100);
+      }
+    };
+
+    const beginHold = (e) => {
+      if (locked) return;
+      if (e.type === "pointerdown" && e.button !== 0) return;
+      e.preventDefault();
+      stopRaf();
+      holding = true;
+      btn.classList.remove("is-rebounding", "is-error");
+      btn.classList.add("is-holding");
+      if (e.pointerId !== undefined && btn.setPointerCapture) {
+        try { btn.setPointerCapture(e.pointerId); } catch {}
+      }
+      lastTs = performance.now();
+
+      const tick = (now) => {
+        if (!holding || locked) return;
+        const dt = now - lastTs;
+        lastTs = now;
+        progress += dt / cfg.duration;
+        if (progress >= 1) {
+          completeHold();
+          return;
+        }
+        setVisual(progress);
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    };
+
+    const cancelHold = () => {
+      if (!holding || locked) return;
+      holding = false;
+      startRebound();
+    };
+
+    btn.addEventListener("pointerdown", beginHold);
+    btn.addEventListener("pointerup", cancelHold);
+    btn.addEventListener("pointercancel", cancelHold);
+    btn.addEventListener("pointerleave", (e) => {
+      if (holding && !btn.hasPointerCapture?.(e.pointerId)) cancelHold();
+    });
+    btn.addEventListener("keydown", (e) => {
+      if ((e.key === " " || e.key === "Enter") && !e.repeat) beginHold(e);
+    });
+    btn.addEventListener("keyup", (e) => {
+      if (e.key === " " || e.key === "Enter") cancelHold();
+    });
+  });
+}
+
+/* ============================================================================
+   CYBERPUNK RADIAL ARC WORKFLOW VISUALIZATION (HERO CANVAS)
+   ============================================================================ */
+const OPS_NODES = [
+  {
+    id: "#01",
+    label: "INGEST & REDACT",
+    cn: "全链路脱敏",
+    angle: -0.26,
+    file: "redaction_gate.py",
+    lines: [
+      "# gate ①-④: 强制脱敏前置拦截",
+      "scan = gate.scan_event(payload, task_id=tid)",
+      "if scan.status == RedactionStatus.BLOCKED:",
+      "    raise RedactionBlockedError(scan.categories)",
+      "assert not engine.assert_only_pii_categories(text)",
+      "emit_audit(EVENT_REDACTION_PASSED, version=scan.ver)",
+    ],
+  },
+  {
+    id: "#02",
+    label: "DIAGNOSE & WIKI",
+    cn: "诊断与知识注入",
+    angle: 0.03,
+    file: "dispatch.py",
+    lines: [
+      "# 核心调度：拆解任务，派发智能体与检索",
+      "ctx = memory_wiring.inject_indexed(query, hard_8_gates)",
+      "plan = planner.plan_next(goal, evidence, ctx)",
+      "for step in plan.steps:",
+      "    obs = executor.run_readonly(engine, step)",
+      "    if obs.status in ('SUCCESS', 'PARTIAL'):",
+      "        wiki.draft_proposed(obs, gate=redaction_gate)",
+    ],
+  },
+  {
+    id: "#03",
+    label: "POLICY & GATEWAY",
+    cn: "两级确认与网关",
+    angle: 0.31,
+    file: "tool_gateway.py",
+    lines: [
+      "# 两级不同主体确认 + 一次性审批消费",
+      "assert stage2.confirmed_by != stage1.confirmed_by",
+      "preflight = tool.preflight(params, max_rows=1)",
+      "approval_service.consume_atomic(grant, digest)",
+      "step_records.insert_prepared(envelope)",
+      "verdict = verifier.verify_independent(observed)",
+    ],
+  },
+];
+
+const AGENT_MODULES = [
+  { num: "01", name: "脱敏闸门", state: "running", tag: "v2" },
+  { num: "02", name: "MySQL适配", state: "armed", tag: "7 read" },
+  { num: "03", name: "PG16适配", state: "armed", tag: "pg_stat" },
+  { num: "04", name: "BYOK路由", state: "running", tag: "SSRF" },
+  { num: "05", name: "诊断规划", state: "running", tag: "R0" },
+  { num: "06", name: "Wiki检索", state: "armed", tag: "8-gate" },
+  { num: "07", name: "两级确认", state: "review", tag: "N-of-M" },
+  { num: "08", name: "策略引擎", state: "armed", tag: "RBAC" },
+  { num: "09", name: "网关预检", state: "armed", tag: "R2" },
+  { num: "10", name: "独立验证", state: "running", tag: "readback" },
+  { num: "11", name: "评测中台", state: "idle", tag: "v1/v2" },
+  { num: "12", name: "审计哈希", state: "armed", tag: "append" },
+];
+
+let opsPaused = false;
+let focusedNodeIdx = 1;
+let pulseBursts = [];
+let palette = {};
+
+function syncCanvasPalette() {
+  const dark = getTheme() === "dark";
+  palette = dark
+    ? {
+        bg: "#060913",
+        rayBase: "rgba(0, 240, 255, 0.14)",
+        rayAlt: "rgba(255, 42, 109, 0.13)",
+        rayHot: "rgba(0, 240, 255, 0.65)",
+        arcStroke: "rgba(0, 240, 255, 0.45)",
+        arcOuter: "rgba(0, 240, 255, 0.25)",
+        tick: "rgba(130, 164, 190, 0.5)",
+        code: "rgba(150, 200, 225, 0.72)",
+        codeHlBg: "#00f0ff",
+        codeHlFg: "#05070e",
+        beamBase: "rgba(0, 240, 255, 0.16)",
+        beamHot: "rgba(255, 42, 109, 0.42)",
+        beamEmerald: "rgba(0, 255, 157, 0.55)",
+        matrix: "rgba(0, 240, 255, 0.72)",
+        matrixAlt: "rgba(255, 42, 109, 0.78)",
+        nodeBg: "#0b101d",
+        nodeFg: "#e6f6ff",
+        nodeGlow: "#00f0ff",
+        danger: "#ff2a6d",
+        emerald: "#00ff9d",
+        amber: "#fcee09",
+      }
+    : {
+        bg: "#f5f6f8",
+        rayBase: "rgba(15, 23, 42, 0.16)",
+        rayAlt: "rgba(0, 102, 204, 0.18)",
+        rayHot: "rgba(0, 102, 204, 0.75)",
+        arcStroke: "rgba(15, 23, 42, 0.55)",
+        arcOuter: "rgba(15, 23, 42, 0.32)",
+        tick: "rgba(51, 65, 85, 0.55)",
+        code: "rgba(15, 23, 42, 0.78)",
+        codeHlBg: "#111827",
+        codeHlFg: "#f8fafc",
+        beamBase: "rgba(15, 23, 42, 0.2)",
+        beamHot: "rgba(225, 29, 72, 0.45)",
+        beamEmerald: "rgba(5, 150, 105, 0.55)",
+        matrix: "rgba(15, 23, 42, 0.85)",
+        matrixAlt: "rgba(0, 102, 204, 0.85)",
+        nodeBg: "#ffffff",
+        nodeFg: "#0f172a",
+        nodeGlow: "#0066cc",
+        danger: "#e11d48",
+        emerald: "#059669",
+        amber: "#d97706",
+      };
+}
+syncCanvasPalette();
+
+function triggerPulseBurst(kind = "diagnose") {
+  pulseBursts.push({
+    t: 0,
+    kind,
+    nodeIdx: kind === "danger" ? 2 : kind === "confirm" ? 2 : 1,
+  });
+}
+
+// Pre-generate deterministic geometric rays, beams & matrix clusters
+const INCOMING_RAYS = Array.from({ length: 135 }, (_, i) => ({
+  x0: ((i * 73) % 380) - 20,
+  y0: ((i * 137) % 560) - 20,
+  nodeIdx: i % OPS_NODES.length,
+  speed: 0.22 + ((i * 19) % 100) / 170,
+  phase: (i * 0.37) % 1,
+  isAlt: i % 5 === 0,
+}));
+
+const OUTGOING_BEAMS = Array.from({ length: 115 }, (_, i) => ({
+  angle: -0.62 + (i / 114) * 1.24,
+  len: 0.35 + ((i * 41) % 65) / 100,
+  speed: 0.35 + ((i * 29) % 100) / 130,
+  phase: (i * 0.23) % 1,
+  weight: i % 7 === 0 ? 1.5 : 0.7,
+  kind: i % 11 === 0 ? "hot" : i % 13 === 0 ? "emerald" : "base",
+}));
+
+const MATRIX_CLUSTERS = [
+  { angle: -0.43, rOffset: 158, bits: Array.from({ length: 24 }, (_, b) => (b * 13) % 3 !== 0) },
+  { angle: -0.14, rOffset: 168, bits: Array.from({ length: 24 }, (_, b) => (b * 17 + 5) % 3 !== 0) },
+  { angle: 0.16, rOffset: 166, bits: Array.from({ length: 24 }, (_, b) => (b * 11 + 2) % 3 !== 0) },
+  { angle: 0.42, rOffset: 156, bits: Array.from({ length: 24 }, (_, b) => (b * 19 + 1) % 3 !== 0) },
+];
+
+const opsCanvas = $("ops-canvas");
+const opsCtx = opsCanvas.getContext("2d");
+let opsTime = 0;
+
+function resizeOpsCanvas() {
+  const wrap = opsCanvas.parentElement;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  opsCanvas.width = Math.floor(wrap.clientWidth * dpr);
+  opsCanvas.height = Math.floor(wrap.clientHeight * dpr);
+  opsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function getArcGeometry(w, h) {
+  // Sweeping architectural arc with clean breathing room for left HUD
+  const radius = Math.max(h * 0.9, 440);
+  const cx = w * 0.48 - radius;
+  const cy = h * 0.52;
+  const outerRadius = radius + Math.min(255, Math.max(195, w * 0.18));
+  return { cx, cy, radius, outerRadius };
+}
+
+function drawOpsFrame(dt) {
+  const w = opsCanvas.clientWidth;
+  const h = opsCanvas.clientHeight;
+  if (!w || !h) return;
+
+  if (!opsPaused) opsTime += dt;
+  const { cx, cy, radius, outerRadius } = getArcGeometry(w, h);
+  const ctx = opsCtx;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = palette.bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle ambient radial neon glow behind the central ring
+  if (getTheme() === "dark") {
+    const grad = ctx.createRadialGradient(cx + radius, cy, 10, cx + radius, cy, 340);
+    grad.addColorStop(0, "rgba(0, 240, 255, 0.08)");
+    grad.addColorStop(0.55, "rgba(255, 42, 109, 0.035)");
+    grad.addColorStop(1, "rgba(6, 9, 19, 0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Compute node screen coordinates along inner arc
+  const nodeCoords = OPS_NODES.map((n) => ({
+    ...n,
+    x: cx + Math.cos(n.angle) * radius,
+    y: cy + Math.sin(n.angle) * radius,
+  }));
+
+  // 1) Left zone: incoming converging vector rays + live travelling pulses
+  for (let i = 0; i < INCOMING_RAYS.length; i++) {
+    const ray = INCOMING_RAYS[i];
+    const target = nodeCoords[ray.nodeIdx];
+    const jitterY = Math.sin(opsTime * 0.4 + i) * 3;
+    const sx = (ray.x0 / 380) * (w * 0.36);
+    const sy = (ray.y0 / 560) * h + jitterY;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(target.x, target.y);
+    ctx.strokeStyle = ray.isAlt ? palette.rayAlt : palette.rayBase;
+    ctx.lineWidth = ray.isAlt ? 0.9 : 0.65;
+    ctx.stroke();
+
+    // Moving signal pulse along every 3rd ray
+    if (i % 3 === 0) {
+      const p = (opsTime * ray.speed + ray.phase) % 1;
+      const px = sx + (target.x - sx) * p;
+      const py = sy + (target.y - sy) * p;
+      ctx.beginPath();
+      ctx.arc(px, py, ray.isAlt ? 2.1 : 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = ray.isAlt ? palette.danger : palette.rayHot;
+      ctx.fill();
+    }
+  }
+
+  // Geometric sensor circles on left field (reference aesthetic detail)
+  ctx.strokeStyle = palette.arcOuter;
+  ctx.lineWidth = 0.8;
+  for (let k = 0; k < 6; k++) {
+    const rx = w * (0.14 + k * 0.035);
+    const ry = h * 0.72 - k * 7;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 4.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 2) Right zone: parallel & fanning outgoing execution/verification beams
+  for (let i = 0; i < OUTGOING_BEAMS.length; i++) {
+    const b = OUTGOING_BEAMS[i];
+    const x1 = cx + Math.cos(b.angle) * (outerRadius + 4);
+    const y1 = cy + Math.sin(b.angle) * (outerRadius + 4);
+    const fanAngle = b.angle * 0.24;
+    const beamDist = (w - x1) * (0.55 + b.len * 0.55);
+    const x2 = x1 + Math.cos(fanAngle) * beamDist;
+    const y2 = y1 + Math.sin(fanAngle) * beamDist;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle =
+      b.kind === "hot"
+        ? palette.beamHot
+        : b.kind === "emerald"
+        ? palette.beamEmerald
+        : palette.beamBase;
+    ctx.lineWidth = b.weight;
+    ctx.stroke();
+
+    // Streaming energy streak along beam
+    const p = (opsTime * b.speed + b.phase) % 1;
+    const segLen = 0.14;
+    const p2 = Math.min(1, p + segLen);
+    ctx.beginPath();
+    ctx.moveTo(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p);
+    ctx.lineTo(x1 + (x2 - x1) * p2, y1 + (y2 - y1) * p2);
+    ctx.strokeStyle =
+      b.kind === "hot" ? palette.danger : b.kind === "emerald" ? palette.emerald : palette.rayHot;
+    ctx.lineWidth = b.weight + 0.7;
+    ctx.stroke();
+  }
+
+  // 3) Concentric Central Ring + Ticks + Numeric Scale
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, -0.78, 0.78);
+  ctx.strokeStyle = palette.arcStroke;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerRadius, -0.78, 0.78);
+  ctx.strokeStyle = palette.arcOuter;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Inner & outer radial ticks + numeric scale labels
+  ctx.font = "9px JetBrains Mono, Consolas, monospace";
+  ctx.textBaseline = "middle";
+  for (let deg = -38; deg <= 38; deg += 1.5) {
+    const rad = (deg * Math.PI) / 180;
+    const major = Math.abs(deg % 6) < 0.01;
+    const tickLen = major ? 9 : 4;
+    // Inner ring ticks
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(rad) * radius, cy + Math.sin(rad) * radius);
+    ctx.lineTo(cx + Math.cos(rad) * (radius + tickLen), cy + Math.sin(rad) * (radius + tickLen));
+    ctx.strokeStyle = palette.tick;
+    ctx.lineWidth = major ? 1.2 : 0.7;
+    ctx.stroke();
+
+    // Outer ring ticks & scale numbers
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(rad) * (outerRadius - tickLen), cy + Math.sin(rad) * (outerRadius - tickLen));
+    ctx.lineTo(cx + Math.cos(rad) * outerRadius, cy + Math.sin(rad) * outerRadius);
+    ctx.stroke();
+
+    if (major) {
+      const tx = cx + Math.cos(rad) * (outerRadius - 26);
+      const ty = cy + Math.sin(rad) * (outerRadius - 26);
+      ctx.fillStyle = palette.tick;
+      ctx.fillText((270 + deg * 3).toFixed(1), tx - 14, ty);
+    }
+  }
+
+  // 4) Bit-Matrix Telemetry Blocks inside the ring band
+  MATRIX_CLUSTERS.forEach((cluster, cIdx) => {
+    const r = radius + cluster.rOffset;
+    const mx = cx + Math.cos(cluster.angle) * r;
+    const my = cy + Math.sin(cluster.angle) * r;
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(cluster.angle * 0.45);
+    const activeTick = Math.floor(opsTime * 3 + cIdx) % 24;
+    for (let i = 0; i < cluster.bits.length; i++) {
+      const col = i % 6;
+      const row = Math.floor(i / 6);
+      const lit = cluster.bits[i] || i === activeTick;
+      if (!lit) continue;
+      ctx.fillStyle = i === activeTick ? palette.matrixAlt : palette.matrix;
+      ctx.fillRect(col * 5, row * 4, 3.6, 2.6);
+    }
+    ctx.restore();
+  });
+
+  // 5) Radial Code Trace Snippets along the Ring Band
+  ctx.font = "9.5px JetBrains Mono, Consolas, monospace";
+  nodeCoords.forEach((n, idx) => {
+    ctx.save();
+    const tx = cx + Math.cos(n.angle) * (radius + 16);
+    const ty = cy + Math.sin(n.angle) * (radius + 16) - 24;
+    ctx.translate(tx, ty);
+    ctx.rotate(n.angle * 0.35);
+
+    const hlLine = Math.floor(opsTime * 1.4 + idx * 2) % n.lines.length;
+    n.lines.forEach((line, lIdx) => {
+      const y = lIdx * 12;
+      const shortLine = line.length > 32 ? line.slice(0, 31) + "…" : line;
+      if (lIdx === hlLine && idx === focusedNodeIdx) {
+        const tw = ctx.measureText(shortLine).width;
+        ctx.fillStyle = palette.codeHlBg;
+        ctx.fillRect(-3, y - 6, tw + 6, 11);
+        ctx.fillStyle = palette.codeHlFg;
+      } else {
+        ctx.fillStyle = palette.code;
+      }
+      ctx.fillText(shortLine, 0, y);
+    });
+    ctx.restore();
+  });
+
+  // 6) Interactive Pipeline Nodes on Inner Arc
+  nodeCoords.forEach((n, idx) => {
+    const isFocused = idx === focusedNodeIdx;
+    const pulseR = 6 + Math.sin(opsTime * 4 + idx) * 2;
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, isFocused ? pulseR + 4 : 7, 0, Math.PI * 2);
+    ctx.strokeStyle = isFocused ? palette.nodeGlow : palette.arcStroke;
+    ctx.lineWidth = isFocused ? 1.8 : 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, isFocused ? 4.2 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = isFocused ? palette.nodeGlow : palette.danger;
+    ctx.fill();
+
+    // Node badge label to left of arc point
+    const tag = `${n.id} · ${n.cn}`;
+    ctx.font = "bold 10.5px JetBrains Mono, Consolas, monospace";
+    const tw = ctx.measureText(tag).width;
+    const bx = n.x - tw - 22;
+    const by = n.y - 10;
+    ctx.fillStyle = palette.nodeBg;
+    ctx.strokeStyle = isFocused ? palette.nodeGlow : palette.arcStroke;
+    ctx.lineWidth = 1;
+    ctx.fillRect(bx, by, tw + 12, 20);
+    ctx.strokeRect(bx, by, tw + 12, 20);
+
+    ctx.fillStyle = isFocused ? palette.nodeGlow : palette.nodeFg;
+    ctx.fillText(tag, bx + 6, n.y + 0.5);
+  });
+
+  // 7) Expanding Action Pulse Bursts (triggered on Hold-Confirm / Diagnosis)
+  pulseBursts = pulseBursts.filter((b) => b.t < 1);
+  pulseBursts.forEach((b) => {
+    b.t += dt * 1.15;
+    const n = nodeCoords[b.nodeIdx] || nodeCoords[1];
+    const r = 10 + b.t * 170;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    const color = b.kind === "danger" ? palette.danger : b.kind === "confirm" ? palette.emerald : palette.nodeGlow;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = Math.max(0, 1 - b.t);
+    ctx.lineWidth = 2.4 * (1 - b.t) + 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+}
+
+// Click on hero canvas to focus nearest pipeline node
+opsCanvas.addEventListener("click", (e) => {
+  const rect = opsCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const { cx, cy, radius } = getArcGeometry(opsCanvas.clientWidth, opsCanvas.clientHeight);
+  let bestIdx = focusedNodeIdx;
+  let bestDist = Infinity;
+  OPS_NODES.forEach((n, idx) => {
+    const nx = cx + Math.cos(n.angle) * radius;
+    const ny = cy + Math.sin(n.angle) * radius;
+    const d = Math.hypot(mx - nx, my - ny);
+    if (d < bestDist) { bestDist = d; bestIdx = idx; }
+  });
+  if (bestDist < 120) {
+    focusedNodeIdx = bestIdx;
+    renderWorkspaceCode();
+    triggerPulseBurst("diagnose");
+  }
+});
+
+/* ============================================================================
+   MINI ADVECTION / PARTICLE FLOW SOLVER (BOTTOM PANEL 2)
+   ============================================================================ */
+const advCanvas = $("advect-canvas");
+const advCtx = advCanvas.getContext("2d");
+let solverMode = "advect";
+const PARTICLES = Array.from({ length: 135 }, (_, i) => ({
+  x: (i * 37) % 320,
+  y: (i * 53) % 110,
+  vx: 0,
+  vy: 0,
+  age: (i * 11) % 60,
+}));
+
+function resizeAdvCanvas() {
+  const wrap = advCanvas.parentElement;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  advCanvas.width = Math.floor(wrap.clientWidth * dpr);
+  advCanvas.height = Math.floor(wrap.clientHeight * dpr);
+  advCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawAdvectionFrame(dt) {
+  const w = advCanvas.clientWidth;
+  const h = advCanvas.clientHeight;
+  if (!w || !h) return;
+  const ctx = advCtx;
+  ctx.fillStyle = getTheme() === "dark" ? "rgba(7, 11, 21, 0.14)" : "rgba(248, 249, 251, 0.14)";
+  ctx.fillRect(0, 0, w, h);
+
+  const speedMult = solverMode === "project" ? 1.8 : solverMode === "rerun" ? 2.6 : 1.15;
+  for (let i = 0; i < PARTICLES.length; i++) {
+    const p = PARTICLES[i];
+    if (!opsPaused) {
+      const angle =
+        solverMode === "project"
+          ? Math.atan2(h / 2 - p.y, w / 2 - p.x) + Math.PI / 2.2
+          : Math.sin(p.x * 0.032 + opsTime) * Math.cos(p.y * 0.04 - opsTime * 0.7) * Math.PI * 2;
+      p.vx = Math.cos(angle) * 34 * speedMult;
+      p.vy = Math.sin(angle) * 34 * speedMult;
+      const nx = p.x + p.vx * dt;
+      const ny = p.y + p.vy * dt;
+
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(nx, ny);
+      ctx.strokeStyle = i % 5 === 0 ? palette.danger : palette.nodeGlow;
+      ctx.lineWidth = 1.65;
+      ctx.stroke();
+
+      p.x = (nx + w) % w;
+      p.y = (ny + h) % h;
+    }
+  }
+}
+
+document.querySelectorAll("[data-solver]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    solverMode = btn.dataset.solver;
+    document.querySelectorAll("[data-solver]").forEach((b) => b.classList.toggle("active", b === btn));
+    if (solverMode === "rerun") {
+      PARTICLES.forEach((p, i) => {
+        p.x = Math.random() * advCanvas.clientWidth;
+        p.y = Math.random() * advCanvas.clientHeight;
+      });
+      triggerPulseBurst("diagnose");
+    }
+  });
+});
+
+/* ============================================================================
+   WORKSPACE CODE & 12-MODULE DISPATCH RENDERERS
+   ============================================================================ */
+function renderWorkspaceCode() {
+  const node = OPS_NODES[focusedNodeIdx];
+  $("code-file-name").textContent = `${node.file} · ${node.lines.length} lines`;
+  $("hud-focus-node").textContent = `NODE ${node.id} · ${node.label} [ACTIVE]`;
+  $("workspace-code").innerHTML = node.lines
+    .map((line, i) => {
+      const ln = String(i + 1).padStart(3, "0");
+      const active = i === node.lines.length - 2 ? "active-line" : "";
+      const cursor = i === node.lines.length - 1 ? '<span class="code-cursor"></span>' : "";
+      return `<div class="code-line ${active}"><span class="code-ln">${ln}</span><span>${esc(line)}${cursor}</span></div>`;
+    })
+    .join("");
+}
+
+function renderAgentsGrid() {
+  $("agents-grid").innerHTML = AGENT_MODULES.map((m, idx) => `
+    <div class="agent-row" onclick="focusedNodeIdx=${idx % OPS_NODES.length};renderWorkspaceCode();triggerPulseBurst('diagnose')">
+      <span class="agent-id">${m.num}</span>
+      <span class="agent-name">${m.name}</span>
+      <span class="agent-state ${m.state}">${m.tag}</span>
+    </div>
+  `).join("");
+}
+
+/* ============================================================================
+   MAIN ANIMATION LOOP & CLOCK
+   ============================================================================ */
+let prevRaf = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - prevRaf) / 1000);
+  prevRaf = now;
+  drawOpsFrame(dt);
+  drawAdvectionFrame(dt);
+  requestAnimationFrame(loop);
+}
+
+$("btn-resume").addEventListener("click", () => {
+  opsPaused = false;
+  $("btn-resume").classList.add("active");
+  $("btn-pause").classList.remove("active");
+});
+$("btn-pause").addEventListener("click", () => {
+  opsPaused = true;
+  $("btn-pause").classList.add("active");
+  $("btn-resume").classList.remove("active");
+});
+$("btn-refresh-all").addEventListener("click", () => {
+  refreshAll();
+  triggerPulseBurst("diagnose");
+  toast("已同步全部控制台数据", "ok");
+});
+
+setInterval(() => {
+  const d = new Date();
+  const ts = d.toTimeString().slice(0, 8);
+  $("hud-clock").textContent = `TASKS → REDACT → DIAGNOSE → WIKI(两级确认) → GATEWAY → VERIFY · ${ts}`;
+}, 1000);
+
+window.addEventListener("resize", () => {
+  resizeOpsCanvas();
+  resizeAdvCanvas();
+});
+
+/* ============================================================================
+   REAL DBGUARDIAN API INTEGRATION
+   ============================================================================ */
+const FALLBACK_FEED = [
+  { seq: "109", verb: "redact", cls: "ok", text: "闸门①-④ 扫描完成（0 PII 泄漏）" },
+  { seq: "110", verb: "diag", cls: "", text: "MySQL LAB 锁等待拓扑采集" },
+  { seq: "111", verb: "pg16", cls: "", text: "pg_stat_statements 慢查询统计可用" },
+  { seq: "112", verb: "wiki", cls: "warn", text: "新知识草稿 PROPOSED 等待两级确认" },
+  { seq: "113", verb: "gate", cls: "ok", text: "ToolGateway pre-flight 爆炸半径校验通过" },
+  { seq: "114", verb: "audit", cls: "ok", text: "追加式哈希链核对一致" },
+];
+
+function renderTaskFeed(tasks) {
+  const ul = $("task-feed");
+  if (!tasks || !tasks.length) {
+    $("feed-count").textContent = "SIM BUS";
+    ul.innerHTML = FALLBACK_FEED.map((f) => `
+      <li class="feed-item">
+        <span class="feed-seq">${f.seq}</span>
+        <span class="feed-verb ${f.cls}">${f.verb}</span>
+        <span class="feed-desc">${esc(f.text)}</span>
+      </li>`).join("");
+    return;
+  }
+  $("feed-count").textContent = `${tasks.length} TASKS`;
+  ul.innerHTML = tasks.slice(0, 12).map((t, i) => {
+    const st = String(t.status || "CREATED");
+    const cls = st.includes("FAIL") || st.includes("CANCEL") ? "warn" : st === "COMPLETED" ? "ok" : "";
+    const shortId = String(t.task_id || t.id || i).slice(-6);
+    return `
+      <li class="feed-item">
+        <span class="feed-seq">${esc(shortId)}</span>
+        <span class="feed-verb ${cls}">${esc(st.slice(0, 8))}</span>
+        <span class="feed-desc">${esc(t.goal || "诊断任务")}</span>
+      </li>`;
+  }).join("");
+}
+
+async function loadTasks() {
+  const { ok, body } = await api("/v1/tasks?limit=20");
+  const items = ok && Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+  $("m-tasks").textContent = String(items.length);
+  renderTaskFeed(items);
+}
+
+async function loadProviders() {
+  const { body } = await api("/v1/model-providers");
+  const rows = Array.isArray(body) ? body : [];
+  const activeCount = rows.filter((p) => p.active).length;
+  $("m-providers").textContent = String(activeCount);
+  $("m-providers-sub").textContent = ` / ${rows.length}`;
+
+  const tbody = $("providers").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">暂无供应商 · 填写上方表单即可接入企业模型 API</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((p) => {
+    const delBtn = renderHoldButton({
+      label: "长按删除",
+      doneLabel: "✓ 已删除",
+      variant: "danger",
+      duration: 900,
+      onConfirm: () => deleteProvider(p.provider_id),
+    });
+    return `
+      <tr>
+        <td class="muted">${esc(String(p.provider_id).slice(0, 8))}…</td>
+        <td><strong>${esc(p.name)}</strong></td>
+        <td class="muted">${esc(p.api_key_preview || "***")}</td>
+        <td><span class="pill ${p.active ? "status-INDEXED" : ""}">${p.active ? "ACTIVE" : "IDLE"}</span></td>
+        <td>
+          <div class="action-group">
+            <button class="cyber-btn" type="button" onclick="testProvider('${esc(p.provider_id)}')">探测</button>
+            <button class="cyber-btn primary" type="button" onclick="activateProvider('${esc(p.provider_id)}')">激活</button>
+            ${delBtn}
+          </div>
+        </td>
+      </tr>`;
+  }).join("");
+  attachHoldHandlers(tbody);
+}
+
+async function createProvider() {
+  const payload = {
+    name: $("p-name").value.trim(),
+    base_url: $("p-url").value.trim(),
+    api_key: $("p-key").value,
+    timeout_s: Number($("p-timeout").value || 60),
+    stream: $("p-stream").value === "true",
+  };
+  const { ok, body } = await api("/v1/model-providers", { method: "POST", body: JSON.stringify(payload) });
+  show($("run-out"), { action: "create_provider", ok, body });
+  if (ok) {
+    toast("模型供应商已加密保存", "ok");
+    triggerPulseBurst("confirm");
+    loadProviders();
+  } else {
+    toast(`保存失败: ${body?.error?.code || "请求被拒"}`, "err");
+  }
+}
+
+async function activateProvider(id) {
+  const { ok, body } = await api(`/v1/model-providers/${id}/activate`, { method: "POST" });
+  if (ok) {
+    toast("已切换租户活跃模型供应商", "ok");
+    triggerPulseBurst("confirm");
+    loadProviders();
+  } else {
+    toast(`激活失败: ${body?.error?.message || JSON.stringify(body)}`, "err");
+  }
+}
+
+async function testProvider(id) {
+  toast("正在探测外部模型 API 连通性...", "info");
+  const { ok, body } = await api(`/v1/model-providers/${id}/test`, { method: "POST" });
+  show($("run-out"), { action: "test_provider", provider_id: id, ok, body });
+  toast(ok ? "模型 API 探测成功" : "模型 API 探测失败，请看输出区", ok ? "ok" : "err");
+}
+
+async function deleteProvider(id) {
+  const { ok, body } = await api(`/v1/model-providers/${id}`, { method: "DELETE" });
+  if (ok) {
+    toast("已长按删除供应商", "ok");
+    setTimeout(() => loadProviders(), 420);
+    return true;
+  }
+  toast(`删除被拒: ${body?.error?.message || JSON.stringify(body)}`, "err");
+  return false;
+}
+
+async function runDiagnosis() {
+  triggerPulseBurst("diagnose");
+  show($("run-out"), "正在创建任务并调度 AgentLoop（R0 只读 + 脱敏闸门）...");
+  const created = await api("/v1/tasks", {
+    method: "POST",
+    body: JSON.stringify({ goal: $("goal").value.trim(), risk_level: "R0" }),
+  });
+  if (!created.ok) {
+    show($("run-out"), created.body);
+    toast("创建任务失败", "err");
+    return;
+  }
+  const taskId = created.body.task_id || created.body.id;
+  const run = await api(`/tasks/${taskId}/run`, { method: "POST", body: JSON.stringify({}) });
+  show($("run-out"), { task_id: taskId, status: run.status, result: run.body });
+  toast(run.ok ? `诊断完成: ${taskId.slice(0, 12)}` : `诊断返回 ${run.status}`, run.ok ? "ok" : "err");
+  loadTasks();
+  loadKnowledge();
+}
+
+function switchReviewTab(tab) {
+  $("panel-wiki").style.display = tab === "wiki" ? "block" : "none";
+  $("panel-approvals").style.display = tab === "approvals" ? "block" : "none";
+  $("tab-wiki").classList.toggle("active", tab === "wiki");
+  $("tab-approvals").classList.toggle("active", tab === "approvals");
+  if (tab === "approvals") loadApprovals();
+}
+
+async function loadKnowledge() {
+  const status = $("k-status").value;
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const { body } = await api(`/v1/knowledge${query}`);
+  const rows = Array.isArray(body) ? body : [];
+
+  const indexed = rows.filter((k) => k.status === "INDEXED").length;
+  const proposed = rows.filter((k) => k.status === "PROPOSED").length;
+  $("m-wiki").textContent = String(indexed);
+  $("m-wiki-sub").textContent = ` / ${rows.length}`;
+  $("hud-indexed-cnt").textContent = String(indexed);
+  $("hud-pending-cnt").textContent = String(proposed);
+
+  const tbody = $("knowledge").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">当前过滤条件下暂无 Wiki 知识条目</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((k) => {
+    const confirmations = (k.confirmations || [])
+      .map((c) => `S${c.stage}:${esc(c.confirmed_by)}`)
+      .join("<br>") || "—";
+
+    const btnS1 = renderHoldButton({
+      label: "长按确认1",
+      doneLabel: "✓ S1 已确认",
+      variant: "confirm",
+      duration: 800,
+      onConfirm: () => confirmK(k.knowledge_id, 1),
+    });
+    const btnS2 = renderHoldButton({
+      label: "长按确认2",
+      doneLabel: "✓ S2 已确认",
+      variant: "confirm",
+      duration: 900,
+      onConfirm: () => confirmK(k.knowledge_id, 2),
+    });
+    const btnPromote = renderHoldButton({
+      label: "长按晋升",
+      doneLabel: "✓ 已晋升",
+      variant: "promote",
+      duration: 900,
+      onConfirm: () => reviewK(k.knowledge_id),
+    });
+    const btnRevoke = renderHoldButton({
+      label: "长按撤销",
+      doneLabel: "✓ 已撤销",
+      variant: "danger",
+      duration: 950,
+      onConfirm: () => revokeK(k.knowledge_id),
+    });
+
+    return `
+      <tr>
+        <td class="muted">${esc(k.knowledge_id)}</td>
+        <td><span class="pill status-${esc(k.status)}">${esc(k.status)}</span></td>
+        <td class="muted">${confirmations}</td>
+        <td><div class="action-group">${btnS1}${btnS2}${btnPromote}${btnRevoke}</div></td>
+      </tr>`;
+  }).join("");
+  attachHoldHandlers(tbody);
+}
+
+async function confirmK(id, stage) {
+  const { ok, body } = await api(`/v1/knowledge/${id}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ stage }),
+  });
+  if (!ok) {
+    toast(`阶段 ${stage} 确认被拒: ${body?.error?.message || JSON.stringify(body)}`, "err");
+    return false;
+  }
+  toast(`知识 ${id} 已完成阶段 ${stage} 确认`, "ok");
+  setTimeout(() => loadKnowledge(), 460);
+  return true;
+}
+
+async function reviewK(id) {
+  const { ok, body } = await api(`/v1/knowledge/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify({ validation_level: "SINGLE_CASE" }),
+  });
+  if (!ok) {
+    toast(`晋升被拒: ${body?.error?.message || JSON.stringify(body)}`, "err");
+    return false;
+  }
+  toast(`知识 ${id} 已晋升为 INDEXED`, "ok");
+  setTimeout(() => loadKnowledge(), 460);
+  return true;
+}
+
+async function revokeK(id) {
+  const { ok, body } = await api(`/v1/knowledge/${id}/revoke`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "工作台长按撤销" }),
+  });
+  if (!ok) {
+    toast(`撤销被拒: ${body?.error?.message || JSON.stringify(body)}`, "err");
+    return false;
+  }
+  toast(`知识 ${id} 已撤销（追加 REVOKED 版本）`, "ok");
+  setTimeout(() => loadKnowledge(), 460);
+  return true;
+}
+
+async function loadApprovals() {
+  const { ok, body } = await api("/v1/approvals");
+  const rows = ok && Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+  const pending = rows.filter((a) => a.status === "PENDING").length;
+  $("m-approvals").textContent = String(pending);
+
+  const tbody = $("approvals").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">暂无 R2 审批记录</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.slice(0, 15).map((a) => {
+    const aid = a.approval_id || a.id;
+    const approveBtn = renderHoldButton({
+      label: "长按批准 R2",
+      doneLabel: "✓ 已批准",
+      variant: "promote",
+      duration: 1000,
+      onConfirm: () => actApproval(aid, "approve"),
+    });
+    const rejectBtn = renderHoldButton({
+      label: "长按拒绝",
+      doneLabel: "✓ 已拒绝",
+      variant: "danger",
+      duration: 850,
+      onConfirm: () => actApproval(aid, "reject"),
+    });
+    return `
+      <tr>
+        <td class="muted">${esc(String(aid).slice(0, 12))}…</td>
+        <td>${esc(a.tool_name || a.action_type || "R2")}</td>
+        <td><span class="pill status-${esc(a.status)}">${esc(a.status)}</span></td>
+        <td><div class="action-group">${a.status === "PENDING" ? approveBtn + rejectBtn : '<span class="muted">已终态</span>'}</div></td>
+      </tr>`;
+  }).join("");
+  attachHoldHandlers(tbody);
+}
+
+async function actApproval(id, action) {
+  const { ok, body } = await api(`/v1/approvals/${id}/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ reason: `工作台长按${action}` }),
+  });
+  if (!ok) {
+    toast(`审批操作被拒: ${body?.error?.message || JSON.stringify(body)}`, "err");
+    return false;
+  }
+  toast(`审批单 ${id.slice(0, 10)} 已${action === "approve" ? "批准" : "拒绝"}`, "ok");
+  setTimeout(() => loadApprovals(), 460);
+  return true;
+}
+
+async function loadRuns() {
+  const { body } = await api("/v1/eval/runs?limit=20");
+  const rows = Array.isArray(body) ? body : [];
+  $("m-evals").textContent = String(rows.length);
+  const tbody = $("runs").querySelector("tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">暂无评测运行记录</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r) => `
+    <tr style="cursor:pointer" onclick="pickRunId('${esc(r.run_id)}')">
+      <td class="muted">${esc(r.run_id)}</td>
+      <td>${esc(r.candidate_label || "—")}</td>
+      <td>${esc(r.model_name || "—")}</td>
+      <td><span class="pill status-${esc(r.status)}">${esc(r.status)}</span></td>
+    </tr>`).join("");
+}
+
+function pickRunId(runId) {
+  if (!$("e-base").value.trim()) $("e-base").value = runId;
+  else $("e-cand").value = runId;
+}
+
+async function executeEvalPlan() {
+  const { ok, body } = await api("/v1/eval/runs/execute", {
+    method: "POST",
+    body: JSON.stringify({
+      suite_path: "benchmarks/w10/suite-v2.json",
+      candidate_label: "console-suite-v2",
+      model_name: "harness-readonly",
+    }),
+  });
+  show($("cmp-out"), body);
+  if (ok) {
+    toast(`已登记评测计划: ${body.run_id} (${body.case_count} cases)`, "ok");
+    triggerPulseBurst("confirm");
+    loadRuns();
+  } else {
+    toast("评测计划触发失败", "err");
+  }
+}
+
+async function compareRuns() {
+  const baseline_run_id = $("e-base").value.trim();
+  const candidate_run_id = $("e-cand").value.trim();
+  const { ok, body } = await api("/v1/eval/comparisons", {
+    method: "POST",
+    body: JSON.stringify({ baseline_run_id, candidate_run_id }),
+  });
+  show($("cmp-out"), ok
+    ? { verdict: body.verdict, reason: body.reason, deltas: body.deltas }
+    : body);
+  toast(ok ? `对比结论: ${body.verdict}` : "对比请求失败", ok ? "ok" : "err");
+}
+
+function refreshAll() {
+  loadProviders();
+  loadKnowledge();
+  loadApprovals();
+  loadRuns();
+  loadTasks();
+}
+
+function mountSandboxHoldControls() {
+  const bar = $("hold-sandbox-bar");
+  if (!bar) return;
+  const demoConfirm = renderHoldButton({
+    label: "长按确认门禁",
+    doneLabel: "✓ 已确认",
+    variant: "confirm",
+    duration: 900,
+    onConfirm: async () => {
+      toast("长按确认完成：已触发脉冲击活与状态锁定", "ok");
+      return true;
+    },
+  });
+  const demoDelete = renderHoldButton({
+    label: "长按删除 / 撤销",
+    doneLabel: "✓ 已删除",
+    variant: "danger",
+    duration: 950,
+    onConfirm: async () => {
+      toast("长按删除完成：危险操作已确认执行", "ok");
+      return true;
+    },
+  });
+  bar.innerHTML = `<span class="muted">交互门禁测试（按住填满边框 / 未满松开回弹）：</span>${demoConfirm}${demoDelete}`;
+  attachHoldHandlers(bar);
+}
+
+/* Boot */
+resizeOpsCanvas();
+resizeAdvCanvas();
+renderWorkspaceCode();
+renderAgentsGrid();
+mountSandboxHoldControls();
+refreshAll();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

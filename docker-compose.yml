@@ -1,0 +1,226 @@
+name: dbguardian
+
+# V2.2 W01 双引擎基础设施骨架。
+# 说明：
+# - 控制库与两个 LAB 使用固定镜像 tag；正式冻结需记录 digest（见 ADR-0003）。
+# - 本机 Docker 守护不可用时，本文件只能做静态校验；网络隔离运行验证标记 NOT_VERIFIED。
+# - W01 阶段 API 暂需访问 LAB；W05 引入 Tool Gateway 后，API 将只保留 control_net。
+
+services:
+  control_db:
+    image: mysql:8.0.46
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DG_CONTROL_ROOT_PASSWORD:-CHANGE_ME_CONTROL_ROOT}
+      MYSQL_DATABASE: dg_system
+      DG_CONTROL_PASSWORD: ${DG_CONTROL_PASSWORD:-CHANGE_ME_CONTROL}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    ports:
+      - "127.0.0.1:${DG_CONTROL_PORT:-3308}:3306"
+    volumes:
+      - control_data:/var/lib/mysql
+      - ./database/migrations/001_harness_core.sql:/docker-entrypoint-initdb.d/02_harness_core.sql:ro
+      - ./database/mysql/init/control/00_roles.sh:/docker-entrypoint-initdb.d/03_roles.sh:ro
+    networks:
+      - control_net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  mysql_lab:
+    image: mysql:8.0.46
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DG_MYSQL_ROOT_PASSWORD:-CHANGE_ME_ROOT}
+      MYSQL_DATABASE: dg_lab
+      DG_RO_PASSWORD: ${DG_RO_PASSWORD:-CHANGE_ME_RO}
+      DG_RW_PASSWORD: ${DG_RW_PASSWORD:-CHANGE_ME_RW}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=151
+      - --default-time-zone=+00:00
+    ports:
+      - "127.0.0.1:${DG_MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_lab_data:/var/lib/mysql
+      - ./database/mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - lab_net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  pg_lab:
+    image: postgres:16.4
+    restart: unless-stopped
+    # P2-T1：`pg_stat_statements` 必须以 shared_preload_libraries 预加载，
+    # 否则 `CREATE EXTENSION` 报 "must be loaded via shared_preload_libraries"，
+    # PG 段 `get_query_stats` 只能停在 NOT_SUPPORTED（ENV-PG5432 的根因）。
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+    environment:
+      POSTGRES_DB: dg_lab_pg
+      POSTGRES_USER: dg_rw_pg
+      POSTGRES_PASSWORD: ${DG_PG_RW_PASSWORD:-CHANGE_ME_PG_RW}
+      DG_RO_PASSWORD: ${DG_PG_RO_PASSWORD:-CHANGE_ME_PG_RO}
+      DG_RW_PASSWORD: ${DG_PG_RW_PASSWORD:-CHANGE_ME_PG_RW}
+    ports:
+      - "127.0.0.1:${DG_PG_PORT:-55432}:5432"
+    volumes:
+      - pg_lab_data:/var/lib/postgresql/data
+      - ./deploy/init/pg_lab_bootstrap.sh:/docker-entrypoint-initdb.d/01_bootstrap.sh:ro
+      - ./database/postgres/init/00_roles.sql:/opt/dg/00_roles.sql:ro
+      - ./database/postgres/init/01_schema.sql:/opt/dg/02_schema.sql:ro
+    networks:
+      - lab_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U dg_rw_pg -d dg_lab_pg"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DG_ENV: ${DG_ENV:-dev}
+      DG_DATABASE_ID: lab_mysql_01
+      DG_RO_DSN: mysql://dg_ro:${DG_RO_PASSWORD:-CHANGE_ME_RO}@mysql_lab:3306/dg_lab?charset=utf8mb4
+      DG_RW_DSN: mysql://dg_rw:${DG_RW_PASSWORD:-CHANGE_ME_RW}@mysql_lab:3306/dg_lab?charset=utf8mb4
+      DG_CONTROL_DSN: mysql://dg_ctl:${DG_CONTROL_PASSWORD:-CHANGE_ME_CONTROL}@control_db:3306/dg_system?charset=utf8mb4
+      DG_PG_DATABASE_ID: lab_pg_01
+      DG_PG_RO_DSN: postgresql://dg_ro_pg:${DG_PG_RO_PASSWORD:-CHANGE_ME_PG_RO}@pg_lab:5432/dg_lab_pg?sslmode=disable
+      DG_PG_RW_DSN: postgresql://dg_rw_pg:${DG_PG_RW_PASSWORD:-CHANGE_ME_PG_RW}@pg_lab:5432/dg_lab_pg?sslmode=disable
+      DG_MODEL_PROVIDER: ${DG_MODEL_PROVIDER:-fake}
+      DG_AGENT_EXECUTION_MODE: ${DG_AGENT_EXECUTION_MODE:-remote_worker}
+    ports:
+      - "127.0.0.1:${DG_API_PORT:-8000}:8000"
+    depends_on:
+      control_db:
+        condition: service_healthy
+    networks:
+      # P6-T1 已完成隔离：api 仅接入 control_net（与可选 model_net），绝不接入 lab_net；
+      # 只读诊断工具通过 dg_system.readonly_tool_requests 派发给独立 worker 执行。
+      - control_net
+      - model_net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # W07 收口：独立 Worker 载体（唯一执行链的进程外壳）。
+  # 网络：control_net（任务/审批/租约/信封）+ lab_net（LAB 目标库）。
+  # **绝不接入 model_net**：Worker 不调用模型（DG_MODEL_PROVIDER=disabled），
+  # 模型侧也就拿不到任何数据库凭据。
+  # DG_GATEWAY_SIGNING_KEY 必须显式注入：dev 下默认是"进程内随机值"，
+  # 拆容器后 Worker 与任何外部验签方不共享密钥，验签必败。
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DG_ENV: ${DG_ENV:-dev}
+      DG_DATABASE_ID: lab_mysql_01
+      DG_DEFAULT_TENANT_ID: ${DG_DEFAULT_TENANT_ID:-tenant_local}
+      DG_DEFAULT_ENVIRONMENT_ID: ${DG_DEFAULT_ENVIRONMENT_ID:-env_mysql_local}
+      DG_RO_DSN: mysql://dg_ro:${DG_RO_PASSWORD:-CHANGE_ME_RO}@mysql_lab:3306/dg_lab?charset=utf8mb4
+      DG_RW_DSN: mysql://dg_rw:${DG_RW_PASSWORD:-CHANGE_ME_RW}@mysql_lab:3306/dg_lab?charset=utf8mb4
+      DG_CONTROL_DSN: mysql://dg_ctl:${DG_CONTROL_PASSWORD:-CHANGE_ME_CONTROL}@control_db:3306/dg_system?charset=utf8mb4
+      DG_POLICY_VERSION: ${DG_POLICY_VERSION:-w06-v1}
+      DG_GATEWAY_SIGNING_KEY: ${DG_GATEWAY_SIGNING_KEY:-CHANGE_ME_WORKER_SIGNING_KEY}
+      DG_WORKER_ID: ${DG_WORKER_ID:-worker_local_01}
+      DG_MODEL_PROVIDER: disabled
+    depends_on:
+      control_db:
+        condition: service_healthy
+      mysql_lab:
+        condition: service_healthy
+    networks:
+      - control_net
+      - lab_net
+
+  # W01 仅定义占位轮廓；W05/W07 引入真实 Worker/Policy/Tool Gateway。
+  tool_gateway:
+    profiles: ["future"]
+    image: python:3.14-slim
+    command: ["python", "-c", "print('tool_gateway placeholder; W05 implemented')"]
+    networks:
+      - control_net
+      - lab_net
+
+  model_service:
+    profiles: ["model"]
+    image: ollama/ollama:0.5.13
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DG_MODEL_PORT:-11434}:11434"
+    volumes:
+      - model_data:/root/.ollama
+    networks:
+      # 模型服务绝不加入 lab_net。
+      - model_net
+      - control_net
+
+  # P4-T2：S3 Object Lock 合规 WORM 归档存储（仅 control_net，不接 lab_net）。
+  minio:
+    profiles: ["worm"]
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${DG_WORM_ACCESS_KEY:-CHANGE_ME_MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${DG_WORM_SECRET_KEY:-CHANGE_ME_MINIO_PASSWORD}
+    ports:
+      - "127.0.0.1:${DG_WORM_PORT:-9000}:9000"
+      - "127.0.0.1:${DG_WORM_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - control_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  control_net:
+    name: dbguardian_control_net
+  lab_net:
+    name: dbguardian_lab_net
+  model_net:
+    name: dbguardian_model_net
+
+volumes:
+  control_data:
+    name: dbguardian_control_data
+  mysql_lab_data:
+    name: dbguardian_mysql_lab_data
+  pg_lab_data:
+    name: dbguardian_pg_lab_data
+  model_data:
+    name: dbguardian_model_data
+  minio_data:
+    name: dbguardian_minio_data
