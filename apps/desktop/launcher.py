@@ -164,7 +164,12 @@ def run_local_diagnosis(symptom: str, *, repo_root: Path = ROOT) -> dict[str, An
 
 
 def get_eval_and_data_summary(*, repo_root: Path = ROOT, conflict_mode: bool = False) -> dict[str, Any]:
-    """汇总评测中台实测基线与金标数据回流状态（严格不补零，真实读取套件与 compare_metrics）。"""
+    """汇总评测中台实测基线与金标数据回流状态（严格不补零，真实读取套件与 compare_metrics）。
+
+    V4.1 起优先读取 ``runs/eval/guardrail-eval-latest.json``（桌面端"运行护栏基准评测"
+    真实跑出来的报告）；只有该文件不存在时才回落到既有基线快照，并显式标注
+    ``data_source``，绝不把快照当成实测数据。
+    """
     from core.eval.repository import compare_metrics
 
     suite_v2_path = repo_root / "benchmarks" / "w10" / "suite-v2.json"
@@ -184,6 +189,32 @@ def get_eval_and_data_summary(*, repo_root: Path = ROOT, conflict_mode: bool = F
         baseline_point = round(float(pt), 4) if isinstance(pt, (int, float)) else None
         env_blocked_count = len(rep.get("environment_blocked", []))
 
+    live_path = repo_root / "runs" / "eval" / "guardrail-eval-latest.json"
+    data_source = "BASELINE_SNAPSHOT"
+    guardrail_block: dict[str, Any] = {}
+    verdict = None
+    if live_path.is_file() and not conflict_mode:
+        try:
+            live = json.loads(live_path.read_text(encoding="utf-8"))
+            live_base = live.get("baseline", {}).get("repository_metrics") or {}
+            live_cand = live.get("candidate", {}).get("repository_metrics") or {}
+            if live_base and live_cand:
+                verdict = compare_metrics(live_base, live_cand)
+                data_source = "LIVE_EVAL"
+                guardrail_block = {
+                    "suite_version": live.get("suite_version", ""),
+                    "total_cases": live.get("total_cases", 0),
+                    "leakage_baseline": live.get("leakage", {}).get("baseline"),
+                    "leakage_candidate": live.get("leakage", {}).get("candidate"),
+                    "diagnosis_accuracy": live.get("candidate", {}).get("diagnosis_accuracy"),
+                    "generated_at": live.get("generated_at", ""),
+                    "report_path": str(live_path),
+                }
+        except (json.JSONDecodeError, OSError, ValueError):
+            data_source = "BASELINE_SNAPSHOT"
+            verdict = None
+            guardrail_block = {}
+
     baseline_metrics: dict[str, float | int | None] = {
         "diagnosis_accuracy": 0.72,
         "false_positive_rate": 0.14,
@@ -200,7 +231,8 @@ def get_eval_and_data_summary(*, repo_root: Path = ROOT, conflict_mode: bool = F
         "tokens_per_case": 1960,
         "outcome_pass_rate": None,
     }
-    verdict = compare_metrics(baseline_metrics, candidate_metrics)
+    if verdict is None:
+        verdict = compare_metrics(baseline_metrics, candidate_metrics)
 
     golden_dir = repo_root / "runs" / "golden" / "golden-desktop-v1"
     golden_manifest_path = golden_dir / "manifest.json"
@@ -221,10 +253,96 @@ def get_eval_and_data_summary(*, repo_root: Path = ROOT, conflict_mode: bool = F
         "verdict": verdict.verdict,
         "reason": verdict.reason,
         "comparable_count": len(verdict.comparable),
+        "data_source": data_source,
+        "guardrail_eval": guardrail_block,
         "golden_status": golden_status,
         "golden_kept": golden_kept,
         "golden_leakage": golden_leakage,
         "golden_path": str(golden_dir),
+    }
+
+
+def scan_local_repo(repo_path: str | Path = ".", *, repo_root: Path = ROOT) -> dict[str, Any]:
+    """本地代码库安全扫描（桌面端快捷入口）：复用 RepoScanner 并输出脱敏摘要 + SARIF。"""
+    from core.plugins.sdk import CrossStackSarifReporter
+    from core.scanners.repo_scanner import RepoScanConfig, scan_repository
+
+    target = Path(repo_path)
+    if not target.is_absolute():
+        target = (Path(repo_root) / target).resolve()
+    config = RepoScanConfig(repo_root=target)
+    result = scan_repository(config)
+
+    sarif_path = Path(repo_root) / "runs" / "reports" / "repo-scan.sarif.json"
+    reporter = CrossStackSarifReporter(tool_name="AegisForge Desktop Repo Scan", tool_version="4.1.0")
+    reporter.write(
+        sarif_path,
+        findings=result.findings,
+        run_properties={
+            "assetId": result.asset_id,
+            "repoRoot": str(target),
+            "highestPriority": result.highest_priority,
+            "scannedFiles": result.scanned_files,
+        },
+    )
+    # 只返回 public_view（不含 evidence 原文），与 SARIF 同一脱敏口径
+    findings = [item.public_view() for item in result.findings[:20]]
+    return {
+        "status": "ok",
+        "asset_id": result.asset_id,
+        "repo_root": str(target),
+        "finding_count": len(result.findings),
+        "highest_priority": result.highest_priority,
+        "by_priority": result.count_by_priority(),
+        "scanned_files": result.scanned_files,
+        "skipped_count": len(result.inventory.skipped_files),
+        "warnings": list(result.warnings),
+        "sarif_path": str(sarif_path),
+        "findings": findings,
+    }
+
+
+def run_guardrail_eval(
+    *,
+    repo_root: Path = ROOT,
+    suite_path: str | Path | None = None,
+    export_golden: bool = True,
+) -> dict[str, Any]:
+    """运行通用护栏基准评测并持久化真实对比结果（``runs/eval/guardrail-eval-latest.json``）。"""
+    from core.eval.agent_benchmark import (
+        build_reference_runner,
+        compare_agent_variants,
+        resolve_suite_path,
+    )
+    from core.guardrails import AgentGuardrailClient
+
+    suite = resolve_suite_path(suite_path, repo_root=Path(repo_root))
+    golden_dir = Path(repo_root) / "runs" / "golden" / "agent-safety-v1" if export_golden else None
+    report = compare_agent_variants(
+        suite,
+        build_reference_runner(),
+        build_reference_runner(guardrail=AgentGuardrailClient()),
+        export_golden_dir=golden_dir,
+    )
+
+    out_path = Path(repo_root) / "runs" / "eval" / "guardrail-eval-latest.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {
+        "status": "ok",
+        "report_path": str(out_path),
+        "suite_path": str(suite),
+        "suite_version": report["suite_version"],
+        "total_cases": report["total_cases"],
+        "verdict": report["verdict"],
+        "reason": report["reason"],
+        "leakage": report["leakage"],
+        "candidate_accuracy": report["candidate"]["diagnosis_accuracy"],
+        "candidate_pass_rate": report["candidate"]["outcome_pass_rate"],
+        "critic_recovery_rate": report["candidate"]["critic_recovery_rate"],
+        "golden": report["golden"],
+        "data_source": "LIVE_EVAL",
     }
 
 
@@ -393,10 +511,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--eval-summary", action="store_true", help="读取评测中台实测摘要与同向对比结论")
     parser.add_argument("--conflict-mode", action="store_true", help="模拟指标方向冲突以触发 INCONCLUSIVE 判定")
     parser.add_argument("--export-golden", action="store_true", help="运行金标数据集脱敏切分与落盘二次复检导出")
+    parser.add_argument(
+        "--scan-repo",
+        nargs="?",
+        const=".",
+        default=None,
+        metavar="PATH",
+        help="扫描本地代码库并输出脱敏发现摘要与 SARIF 路径（缺省当前目录）",
+    )
+    parser.add_argument(
+        "--run-guardrail-eval",
+        action="store_true",
+        help="运行通用 Agent 护栏基准评测并持久化 runs/eval/guardrail-eval-latest.json",
+    )
+    parser.add_argument(
+        "--guardrail-suite",
+        default=None,
+        help="护栏评测套件路径（缺省 benchmarks/guardrails/suite-agent-safety-v1.json）",
+    )
     args = parser.parse_args(argv)
 
     ensure_env_and_master_key(ROOT)
     if args.prepare_only:
+        return 0
+
+    if args.scan_repo is not None:
+        payload = scan_local_repo(args.scan_repo, repo_root=ROOT)
+        sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
+        return 0
+
+    if args.run_guardrail_eval:
+        payload = run_guardrail_eval(repo_root=ROOT, suite_path=args.guardrail_suite)
+        sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
         return 0
 
     if args.eval_summary:

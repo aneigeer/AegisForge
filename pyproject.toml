@@ -29,6 +29,7 @@ dev = [
 
 [project.scripts]
 dbguardian-desktop = "apps.desktop.launcher:main"
+aegisforge-gate = "apps.cli.secops_gate:main"
 
 [tool.setuptools.packages.find]
 include = ["apps*", "core*", "database*", "adapters*", "workers*"]

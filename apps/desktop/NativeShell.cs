@@ -202,9 +202,14 @@ namespace DBGuardianDesktop
         private string _goldenStatus = "就绪（点击右侧一键脱敏导出）";
         private int _goldenKept = 0;
         private string _goldenOutputDir = "runs/golden/golden-desktop-v1";
+        // V4.1：评测数据来源（LIVE_EVAL = 真实跑过 run-guardrail-eval；BASELINE_SNAPSHOT = 内置快照）
+        private string _evalDataSource = "BASELINE_SNAPSHOT";
+        private string _guardrailLeakage = "-";
         private RectangleF _btnRefreshEvalRect;
         private RectangleF _btnExportGoldenRect;
         private RectangleF _btnToggleConflictRect;
+        private RectangleF _btnRunGuardrailEvalRect;
+        private RectangleF _btnScanRepoRect;
 
         // 悬浮 Toast 提示
         private string _toastText = "";
@@ -2974,6 +2979,21 @@ namespace DBGuardianDesktop
                 _btnRefreshEvalRect = new RectangleF(_btnExportGoldenRect.Left - 134f, y0 + 6f, 124f, 34f);
                 DrawHeaderButton(g, _btnRefreshEvalRect, "↻ 刷新实测摘要", false, dark, bgCard, borderCol, fgPrimary, cCyan);
 
+                // V4.1：真实护栏基准评测（--run-guardrail-eval）与本地代码库安全扫描（--scan-repo）
+                _btnRunGuardrailEvalRect = new RectangleF(_btnRefreshEvalRect.Left - 166f, y0 + 6f, 156f, 34f);
+                DrawHeaderButton(g, _btnRunGuardrailEvalRect, "⚡ 运行护栏基准评测", true, dark, bgCard, borderCol, fgPrimary, cIndigo);
+
+                _btnScanRepoRect = new RectangleF(_btnRunGuardrailEvalRect.Left - 156f, y0 + 6f, 146f, 34f);
+                DrawHeaderButton(g, _btnScanRepoRect, "⌕ 本地代码库扫描", false, dark, bgCard, borderCol, fgPrimary, cAmber);
+
+                // 数据来源标签：绝不把内置快照伪装成实测数据
+                g.DrawString(
+                    "数据来源: " + _evalDataSource + "   |   护栏泄漏(基线→候选): " + _guardrailLeakage,
+                    fDesc,
+                    _evalDataSource == "LIVE_EVAL" ? brEmerald : brAmber,
+                    x0,
+                    y0 + 44f);
+
                 // 顶部 4 张核心指标卡
                 float cardY = y0 + 68f;
                 float cardW = (contentW - 36f) / 4f;
@@ -3131,6 +3151,10 @@ namespace DBGuardianDesktop
 
             Match mg = Regex.Match(json, "\"golden_kept\"\\s*:\\s*(\\d+)");
             if (mg.Success) int.TryParse(mg.Groups[1].Value, out _goldenKept);
+
+            // V4.1：如实标注数据来源（LIVE_EVAL / BASELINE_SNAPSHOT），不伪造实测
+            string dataSource = ExtractJsonField(json, "data_source");
+            if (!string.IsNullOrEmpty(dataSource)) _evalDataSource = dataSource;
         }
 
         private void RenderFloatingToast(
@@ -3398,6 +3422,47 @@ namespace DBGuardianDesktop
                             : "指标同向改善: compare_metrics 返回 CANDIDATE_BETTER",
                         _evalConflictMode ? "amber" : "emerald"
                     );
+                    return;
+                }
+                if (_btnRunGuardrailEvalRect.Contains(pt))
+                {
+                    string json = RunLocalPythonBridge("-m apps.desktop.launcher --run-guardrail-eval");
+                    string verdict = ExtractJsonField(json, "verdict");
+                    if (string.IsNullOrEmpty(verdict))
+                    {
+                        ShowToast("护栏基准评测未完成：未取到实测报告（检查 runs/eval 与套件路径）", "amber");
+                        return;
+                    }
+                    _evalVerdict = verdict;
+                    string reason = ExtractJsonField(json, "reason");
+                    if (!string.IsNullOrEmpty(reason)) _evalReason = reason;
+                    _evalDataSource = "LIVE_EVAL";
+                    MatchCollection leaks = Regex.Matches(json, "\"leakage_count\"\\s*:\\s*(\\d+)");
+                    if (leaks.Count >= 2)
+                    {
+                        _guardrailLeakage = leaks[0].Groups[1].Value + " → " + leaks[1].Groups[1].Value;
+                    }
+                    AddAuditEntry("评测中台", "护栏基准评测", "运行 suite-agent-safety-v1 真实 A/B 对比，判决 " + _evalVerdict + "，canary 泄漏 " + _guardrailLeakage, "已落盘");
+                    ShowToast("护栏基准评测完成: " + _evalVerdict + "，泄漏(基线→候选)=" + _guardrailLeakage, "emerald");
+                    TriggerMicroVibration();
+                    return;
+                }
+                if (_btnScanRepoRect.Contains(pt))
+                {
+                    string json = RunLocalPythonBridge("-m apps.desktop.launcher --scan-repo .");
+                    string priority = ExtractJsonField(json, "highest_priority");
+                    string sarif = ExtractJsonField(json, "sarif_path");
+                    if (string.IsNullOrEmpty(priority))
+                    {
+                        ShowToast("本地代码库扫描失败：未取得结构化结果", "amber");
+                        return;
+                    }
+                    Match mf = Regex.Match(json, "\"finding_count\"\\s*:\\s*(\\d+)");
+                    int findings = 0;
+                    if (mf.Success) int.TryParse(mf.Groups[1].Value, out findings);
+                    AddAuditEntry("本地仓库门禁", "代码库扫描", "扫描当前仓库得到 " + findings + " 条发现（最高 " + priority + "），SARIF 已按脱敏口径落盘", "已脱敏");
+                    ShowToast("本地代码库扫描完成: " + findings + " 条发现，最高 " + priority + "，SARIF: " + sarif, findings > 0 ? "amber" : "emerald");
+                    TriggerMicroVibration();
                     return;
                 }
                 if (_btnExportGoldenRect.Contains(pt))

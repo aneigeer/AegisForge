@@ -273,13 +273,38 @@ class AppSecMasker:
 
 
 class AppSecHarness:
-    """App + DB 联合容器沙箱 + 影子流量回放。"""
+    """App + DB 联合容器沙箱 + 影子流量回放。
 
-    def __init__(self, sandbox: Any | None = None) -> None:
+    V4.1 起支持注入**真实隔离工作区校验后端**（``ci_harness``）：文本级判定之外，
+    再把补丁真正落到 ``tempfile`` 目录里编译、可选跑单测并验证反向 Patch 哈希。
+    未注入时行为与 V3.0 完全一致（既有单测口径不变）。
+    """
+
+    def __init__(
+        self,
+        sandbox: Any | None = None,
+        *,
+        isolated_verifier: Callable[..., HarnessOutcome] | None = None,
+        repo_root: Any | None = None,
+    ) -> None:
         self._sandbox = sandbox
+        self._isolated_verifier = isolated_verifier
+        self._repo_root = repo_root
 
     def attach(self, sandbox: Any) -> None:
         self._sandbox = sandbox
+
+    def attach_isolated_verifier(
+        self,
+        verifier: Callable[..., HarnessOutcome] | None,
+        *,
+        repo_root: Any | None = None,
+    ) -> "AppSecHarness":
+        """注入隔离工作区校验器（``verify_patch_in_isolated_workdir`` 或其等价实现）。"""
+        self._isolated_verifier = verifier
+        if repo_root is not None:
+            self._repo_root = repo_root
+        return self
 
     def domain_id(self) -> str:
         return DOMAIN_APPSEC
@@ -339,13 +364,32 @@ class AppSecHarness:
             logs.append(
                 f"联合沙箱: db_fixture={db_fixture}, replay_pass_rate={replay_rate}, patch_valid={patch_valid}"
             )
+            dry_run_passed = patch_valid
+            poc_blocked = patch_valid and self._pattern_removed(finding.category, proposal.standard_fix)
+            compatible = replay_rate
+            rollback_verified = rollback_ok
+
+            if self._isolated_verifier is not None and self._repo_root is not None and patch_valid and rollback_ok:
+                isolated = self._run_isolated_verification(proposal)
+                logs.extend(isolated.logs)
+                for code in isolated.failures:
+                    if code not in failures:
+                        failures.append(code)
+                dry_run_passed = dry_run_passed and isolated.dry_run_passed
+                poc_blocked = poc_blocked and isolated.poc_blocked_after_fix
+                rollback_verified = rollback_verified and isolated.rollback_verified
+                if not isolated.dry_run_passed:
+                    compatible = min(compatible, isolated.compatibility_score)
+            elif self._isolated_verifier is not None and self._repo_root is not None:
+                logs.append("隔离工作区校验跳过：补丁形状或回滚未就绪")
+
             return HarnessOutcome(
                 proposal_id=proposal.proposal_id,
                 poc_reproduced=poc_ok,
-                poc_blocked_after_fix=patch_valid and self._pattern_removed(finding.category, proposal.standard_fix),
-                dry_run_passed=patch_valid,
-                rollback_verified=rollback_ok,
-                compatibility_score=replay_rate,
+                poc_blocked_after_fix=poc_blocked,
+                dry_run_passed=dry_run_passed,
+                rollback_verified=rollback_verified,
+                compatibility_score=compatible,
                 sandbox_pool="TRAFFIC_REPLAY",
                 logs=tuple(logs),
                 failures=tuple(dict.fromkeys(failures)),
@@ -353,6 +397,29 @@ class AppSecHarness:
         finally:
             if lease is not None and self._sandbox is not None:
                 self._sandbox.release(lease["lease_id"])
+
+    def _run_isolated_verification(self, proposal: RemediationProposal) -> HarnessOutcome:
+        """调用注入的真实沙箱；异常一律 fail closed（绝不当成通过）。"""
+        assert self._isolated_verifier is not None
+        try:
+            outcome = self._isolated_verifier(
+                repo_root=self._repo_root,
+                patch_text=proposal.standard_fix,
+                rollback_patch_text=proposal.rollback.payload,
+            )
+        except Exception as exc:  # noqa: BLE001 - 校验器故障必须显式失败，不得静默放行
+            return HarnessOutcome(
+                proposal_id=proposal.proposal_id,
+                poc_reproduced=False,
+                poc_blocked_after_fix=False,
+                dry_run_passed=False,
+                rollback_verified=False,
+                compatibility_score=0.0,
+                sandbox_pool="TEMP_WORKDIR",
+                logs=(f"隔离工作区校验器异常: {type(exc).__name__}",),
+                failures=("ISOLATED_VERIFIER_ERROR",),
+            )
+        return outcome
 
     @staticmethod
     def _looks_like_patch(text: str) -> bool:
@@ -430,10 +497,16 @@ class AppSecPlugin:
         gateway: Any | None = None,
         sandbox: Any | None = None,
         draft_provider: Callable[[ProbeFinding, TargetAsset, int, tuple[str, ...]], RemediationProposal] | None = None,
+        isolated_verifier: Callable[..., HarnessOutcome] | None = None,
+        repo_root: Any | None = None,
     ) -> None:
         self._probe = AppSecProbe()
         self._masker = AppSecMasker()
-        self._harness = AppSecHarness(sandbox)
+        self._harness = AppSecHarness(
+            sandbox,
+            isolated_verifier=isolated_verifier,
+            repo_root=repo_root,
+        )
         self._executor = AppSecExecutor()
         self._gateway = gateway
         self._draft_provider = draft_provider
@@ -477,6 +550,16 @@ class AppSecPlugin:
 
     def attach_sandbox(self, sandbox: Any) -> "AppSecPlugin":
         self._harness.attach(sandbox)
+        return self
+
+    def attach_isolated_verifier(
+        self,
+        verifier: Callable[..., HarnessOutcome] | None,
+        *,
+        repo_root: Any | None = None,
+    ) -> "AppSecPlugin":
+        """装配 V4.1 隔离工作区校验后端（CI 门禁 / 桌面端真实沙箱验证）。"""
+        self._harness.attach_isolated_verifier(verifier, repo_root=repo_root)
         return self
 
     def set_sources(self, asset_id: str, sources: dict[str, str]) -> "AppSecPlugin":

@@ -1,0 +1,335 @@
+{
+  "schema_version": "4.1.0",
+  "product_name": "AegisForge",
+  "document_title": "AegisForge V4.1 — CI/CD 本地仓库安全门禁 + 通用 Agent 护栏与评测中台复用 AI 执行规范",
+  "generated_at": "2026-11-24T15:35:00+08:00",
+  "target_executor": "autonomous_coding_agent",
+  "merge_objective": {
+    "summary": "将方向 1（CI/CD 安全门禁与本地代码库审计/沙箱修补 Agent）与方向 4（通用 Agent 安全护栏 SDK 与防泄漏评测中台）合并落地，在不引入重型 K8s/SSH 靶机前提下，打通任意本地后端仓库的真实扫描修复闭环，并抽离可直接复用到外部 AI Agent 项目的 Guardrails + Eval 基础设施。",
+    "track_a_cicd_gate": "本地仓库多域文件扫描（AppSec 源码/依赖 + K8s YAML/Compose）-> 脱敏送审 -> Isolated Tempdir 沙箱编译/单测验证与 Critic 自愈 -> 统一 CLI 退出码门禁 + SARIF v2.1.0 + unified diff Patch 输出",
+    "track_b_reusable_guardrails_eval": "将 MultimodalPrivacyGateway、策略拦截、WORM 审计抽取为框架无关的 core/guardrails SDK，并与 core/benchmark/golden.py + core/eval/repository.py 联动，形成通用 Agent 防泄漏/越权压测与 A/B 门控评测引擎"
+  },
+  "current_verified_baseline": {
+    "latest_commit": "54563f5",
+    "existing_core_files": {
+      "appsec_plugin": "core/plugins/appsec/plugin.py",
+      "k8s_plugin": "core/plugins/k8s/plugin.py",
+      "plugin_sdk_sarif": "core/plugins/sdk.py",
+      "secops_orchestrator": "core/orchestrator/secops_graph.py",
+      "state_graph": "core/orchestrator/state_graph.py",
+      "multimodal_gateway": "core/privacy_gateway/multimodal.py",
+      "yaml_masker": "core/privacy_gateway/yaml_masker.py",
+      "ten_modules": "core/platform/ten_modules.py",
+      "eval_repository": "core/eval/repository.py",
+      "golden_dataset": "core/benchmark/golden.py",
+      "dataset_schema": "core/benchmark/dataset.py",
+      "secops_api": "apps/api/routes/secops.py",
+      "eval_api": "apps/api/routes/eval.py",
+      "desktop_bridge": "apps/desktop/launcher.py",
+      "desktop_shell": "apps/desktop/NativeShell.cs",
+      "ci_workflow": ".github/workflows/ci.yml",
+      "pyproject": "pyproject.toml"
+    },
+    "baseline_verification": {
+      "full_unit_tests_pre_54563f5": "2014 passed",
+      "targeted_tests_post_54563f5": "50 passed (test_desktop_launcher + test_v3_state_graph_agents + test_p5_golden_dataset + test_ten_core_modules)",
+      "desktop_binary": "dist/AegisForge.exe"
+    }
+  },
+  "engineering_invariants": [
+    {
+      "id": "INV-NO-REGRESSION",
+      "rule": "严禁破坏现有 V2.0/V3.0/桌面端所有既有单测与 API 契约；不得删除或弱化现有断言。"
+    },
+    {
+      "id": "INV-ZERO-HEAVY-INFRA",
+      "rule": "严禁要求真实 K8s 集群、SSH 虚拟机或外部容器才能通过 Track A/B；沙箱验证必须基于 tempfile 隔离工作区 + python py_compile / pytest 子进程在本地离线完成。"
+    },
+    {
+      "id": "INV-NO-RULE-DUPLICATION",
+      "rule": "本地仓库扫描必须复用 core/plugins/appsec/plugin.py (AppSecProbe) 与 core/plugins/k8s/plugin.py (K8sProbe) 的既有规则，不得在扫描器中复制一份检测正则。"
+    },
+    {
+      "id": "INV-FAIL-CLOSED-PRIVACY",
+      "rule": "所有出站脱敏必须经过 MultimodalPrivacyGateway（Fernet 信封加密持久化），PII 令牌永不还原为明文；SARIF/Eval 报告严禁携带原始未脱敏 evidence 或真实密钥。"
+    },
+    {
+      "id": "INV-SECRET-SCAN-SAFE",
+      "rule": "所有新增源码、测试夹具与工作流 YAML 必须通过 .github/workflows/ci.yml 中的 Secret Scan 正则检查（禁止出现真实或高仿私钥头与硬编码 AK 前缀）。"
+    },
+    {
+      "id": "INV-CRITIC-BOUNDED",
+      "rule": "Critic 打回自愈必须维持 max_self_correction_rounds <= 3 硬上限；超限转挂起/人工确认，绝不静默放行。"
+    },
+    {
+      "id": "INV-PYTEST-EXECUTION",
+      "rule": "运行测试必须顺序执行且不得并发拉起多个 pytest 进程；在 Windows 环境下统一使用 .\\.venv\\Scripts\\python.exe -m pytest <target> -o addopts=\"\" -q -p no:cacheprovider。"
+    }
+  ],
+  "execution_steps": [
+    {
+      "step_id": "STEP-01",
+      "track": "Track A (CI/CD Repo Gate)",
+      "title": "实现本地代码库安全扫描与 Git Diff 增量采集器",
+      "depends_on": [],
+      "target_files": [
+        "core/scanners/__init__.py",
+        "core/scanners/repo_scanner.py"
+      ],
+      "design_spec": {
+        "purpose": "为现有的 AppSecProbe 与 K8sProbe 提供真实本地文件系统与 Git 增量变更输入适配器，解决当前插件只能消费手工字典的问题。",
+        "required_classes_and_functions": [
+          "RepoScanConfig(repo_root: Path, changed_only: bool = False, base_ref: str | None = None, max_files: int = 500, max_file_bytes: int = 524288)",
+          "RepoInventory(asset_id: str, sources: dict[str, str], dependencies: list[dict[str, Any]], k8s_manifests: dict[str, str], skipped_files: list[str])",
+          "collect_repo_inventory(config: RepoScanConfig) -> RepoInventory",
+          "scan_repository(config: RepoScanConfig, *, plugins: DomainPluginRegistry | None = None) -> RepoScanResult"
+        ],
+        "behavior_rules": [
+          "默认排除目录：.git、.venv、venv、__pycache__、node_modules、dist、build、runs、.screenshots。",
+          "文件分类路由：*.py / *.js / *.ts / *.go / *.java 写入 sources（首期重点确保 .py 与通用文本规则命中）；requirements*.txt / pyproject.toml / package.json 解析依赖名与版本写入 dependencies；识别含 apiVersion:/kind: 的 *.yaml/*.yml（或 k8s/、deploy/ 下清单）写入 k8s_manifests。",
+          "当 changed_only=True 时，调用 git diff --name-only <base_ref>...HEAD（失败时回退 git status --porcelain 或全量并显式记录 warning，不得静默吞错）。",
+          "单文件超过 max_file_bytes 或总文件数超过 max_files 时安全跳过并记入 skipped_files，禁止读取二进制文件。",
+          "将收集结果注入 AppSecProbe.set_sources / set_dependencies 与 K8sProbe.set_facts，调用标准 DomainPlugin 产出统一 ProbeFinding 列表与 location（格式为 file://<rel_path>#L<line> 或 k8s://...）。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止扫描过程中执行仓库内任意代码（不得 import 目标仓库模块）",
+        "禁止重写 AppSecProbe / K8sProbe 已有检测规则"
+      ],
+      "acceptance_criteria": [
+        "可对包含故意构造漏洞夹具的临时目录完成扫描并检出 SQL_INJECTION、HARDCODED_SECRET、SCA_VULN 与 K8s特权容器风险",
+        "changed_only=True 能只扫描 git diff 修改的文件",
+        "二进制文件、超大文件和 .venv/.git 目录被可靠跳过"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_repo_gate.py -k scanner -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-02",
+      "track": "Track A (CI/CD Sandbox & Critic)",
+      "title": "构建隔离临时目录 Patch 沙箱验证器并接入 Critic 自愈环",
+      "depends_on": [
+        "STEP-01"
+      ],
+      "target_files": [
+        "core/plugins/appsec/ci_harness.py",
+        "core/plugins/appsec/plugin.py",
+        "core/orchestrator/secops_graph.py"
+      ],
+      "design_spec": {
+        "purpose": "让 AppSec 的补丁方案在本地不污染源仓库的临时沙箱中真实应用 diff、做语法编译校验，并可选运行目标测试命令作为 HarnessOutcome，驱动 CriticAgent 在失败时打回自愈。",
+        "required_classes_and_functions": [
+          "RepoPatchSandboxResult(patch_applied: bool, compile_ok: bool, tests_passed: bool | None, rollback_verified: bool, exit_code: int, logs: str)",
+          "verify_patch_in_isolated_workdir(repo_root: Path, patch_text: str, rollback_patch_text: str, *, test_command: list[str] | None = None, timeout_seconds: int = 30) -> HarnessOutcome"
+        ],
+        "behavior_rules": [
+          "在 tempfile.TemporaryDirectory 中浅拷贝目标受影响文件（或整个轻量目标工作区），禁止对原 repo_root 执行写操作。",
+          "支持解析并应用 unified diff（或可控行级替换补丁），随后执行 python -m py_compile 校验语法完整性；若传入 test_command，则在隔离目录执行并受 timeout_seconds 严格约束。",
+          "随后应用 rollback_patch_text 验证文件可恢复至原始 SHA-256 哈希，确保 rollback_verified=True。",
+          "在 AppSecHarness 中支持注入上述隔离工作区校验器作为可选真实校验后端；若编译或单测失败，返回 passed=False 与结构化 stderr 摘要，触发 Critic -> AppSecSpecialistAgent 自愈重修（最多 3 轮）。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止在未通过 HITL 或显式 --apply 参数前修改用户源仓库文件",
+        "禁止沙箱子进程不设超时时间"
+      ],
+      "acceptance_criteria": [
+        "破坏语法的坏 Patch 会在沙箱编译阶段被拦截并使 HarnessOutcome.passed=False",
+        "在 SecOpsOrchestrator 中，坏 Patch 会触发 Critic 至少 1 轮打回自愈且受 max_self_correction_rounds=3 约束",
+        "回滚验证能校验补丁逆向还原后文件哈希与原文件一致"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_repo_gate.py -k harness -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-03",
+      "track": "Track A (CI/CD CLI & SARIF Gate)",
+      "title": "新增统一 CI/CD 安全门禁 CLI（aegisforge-gate）与 PR 报告输出",
+      "depends_on": [
+        "STEP-01",
+        "STEP-02"
+      ],
+      "target_files": [
+        "apps/cli/__init__.py",
+        "apps/cli/secops_gate.py",
+        "pyproject.toml"
+      ],
+      "design_spec": {
+        "purpose": "提供可直接接入本地开发流或 GitHub Actions 的命令行门禁工具，一站式完成扫描、脱敏、多 Agent 编排、沙箱验证、SARIF 与 Patch 落盘。",
+        "cli_arguments": [
+          "--repo <path> (默认当前目录 .)",
+          "--changed-only / --base-ref <git-ref>",
+          "--fail-on P0|P1|P2|P3|none (默认 P0)",
+          "--sarif-out <path> (输出标准 SARIF v2.1.0)",
+          "--patch-out <path> (输出聚合 unified diff 建议)",
+          "--markdown-summary <path> (输出适合 PR Comment 的 Markdown 摘要)",
+          "--run-sandbox-tests (是否在隔离目录执行 py_compile/测试验证)",
+          "--test-cmd <cmd> (可选沙箱校验命令)"
+        ],
+        "behavior_rules": [
+          "完整串联 RepoScanner -> MultimodalPrivacyGateway 脱敏校验 -> SecOpsOrchestrator -> CrossStackSarifReporter。",
+          "在 pyproject.toml [project.scripts] 中新增 aegisforge-gate = \"apps.cli.secops_gate:main\"，保留原有 dbguardian-desktop 入口。",
+          "按最高命中风险等级与 --fail-on 阈值比对：命中或高于阈值返回退出码 2（门禁阻断），否则返回 0；执行参数或目录异常返回 1。",
+          "输出的 SARIF、Markdown 摘要与 CLI JSON 不包含任何原始敏感凭据或未脱敏源码秘钥原文。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止删除或修改 pyproject.toml 中已有依赖与 dbguardian-desktop 入口"
+      ],
+      "acceptance_criteria": [
+        "执行 python -m apps.cli.secops_gate --repo <fixture_dir> --fail-on P0 --sarif-out <tmp> 能正确返回 exit code 2 并生成合法 SARIF v2.1.0 JSON",
+        "对干净目录执行返回 exit code 0 并生成 0 findings 的 Markdown 摘要",
+        "SARIF 文件不含敏感 evidence 原文"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_repo_gate.py -k cli -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-04",
+      "track": "Track B (Reusable Guardrails SDK)",
+      "title": "抽离框架无关的通用 Agent 安全护栏 SDK（core/guardrails）",
+      "depends_on": [],
+      "target_files": [
+        "core/guardrails/__init__.py",
+        "core/guardrails/gateway.py",
+        "core/guardrails/policies.py"
+      ],
+      "design_spec": {
+        "purpose": "将 AegisForge 的双向可逆脱敏、高危动作策略门控与防篡改审计链封装为独立、零外部框架绑定的 Python SDK，便于直接复用到用户的 AI Agent 主项目中。",
+        "required_classes_and_functions": [
+          "GuardrailDecision(allowed: bool, action: str, reason: str, masked_payload: str, requires_hitl: bool, workflow_run_id: str, audit_digest: str)",
+          "PolicyRule / DefaultAgentSafetyPolicy (拦截明文密钥外泄、Prompt 注入常见高危系统指令、无审批高危写操作、越界文件路径)",
+          "AgentGuardrailClient(gateway: MultimodalPrivacyGateway | None = None, policy: DefaultAgentSafetyPolicy | None = None)",
+          "AgentGuardrailClient.guard_outbound(payload: str, *, workflow_run_id: str, modality: str | None = None, ttl_seconds: int = 3600) -> GuardrailDecision",
+          "AgentGuardrailClient.guard_inbound_restore(llm_output: str, *, workflow_run_id: str, destroy: bool = False) -> str",
+          "AgentGuardrailClient.guard_tool_execution(tool_name: str, arguments: Mapping[str, Any], *, risk_tier: str, hitl_approved: bool = False, workflow_run_id: str) -> GuardrailDecision",
+          "guard_tool_call(risk_tier: str = \"P2\", require_hitl_for: tuple[str, ...] = (\"P0\", \"P1\")) (可直接装饰任意 Agent Tool 函数的装饰器)"
+        ],
+        "behavior_rules": [
+          "底层直接委托给 MultimodalPrivacyGateway（不重复造加密轮子），支持 SQL / YAML / JSON / Text / Code 自动模态路由。",
+          "guard_inbound_restore 对 PII 令牌保持不可逆掩码（[REDACTED_PII]），并在结构校验失败时 fail-closed 抛出明确异常。",
+          "guard_tool_execution 对 P0/P1 高危动作若 hitl_approved=False 强制返回 allowed=False, requires_hitl=True。",
+          "内置独立哈希链审计事件列表 export_audit_chain() -> list[dict[str, Any]]，每条记录带 prev_hash 与 sha256。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止强依赖 LangChain/LlamaIndex 等第三方重型 Agent 框架（必须保持纯标准库 + 现有项目核心依赖）",
+        "禁止破坏 MultimodalPrivacyGateway 既有 API"
+      ],
+      "acceptance_criteria": [
+        "外部脚本仅需 from core.guardrails import AgentGuardrailClient, guard_tool_call 即可在 5 行内为任意 Tool 加上脱敏 + HITL 拦截",
+        "P0/P1 工具在未审批时被阻断，审批后放行并产出可校验的哈希链审计事件",
+        "入站还原后业务标识符恢复正确，手机号/邮箱/密钥类 PII 保持脱敏"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_guardrails_sdk.py -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-05",
+      "track": "Track B (Generic Agent Eval Engine)",
+      "title": "建设通用 Agent 安全护栏 + 效果回归评测与金标防泄漏流水线",
+      "depends_on": [
+        "STEP-04"
+      ],
+      "target_files": [
+        "core/eval/agent_benchmark.py",
+        "core/eval/__init__.py",
+        "benchmarks/guardrails/suite-agent-safety-v1.json"
+      ],
+      "design_spec": {
+        "purpose": "打通「安全测试用例集 + 可插拔 Agent 适配器 + Golden 防泄漏过滤 + EvalRepository A/B 门控判定」，既可用于本项目的 AppSec/Repo 修复评测，也可直接用于评测其他 AI Agent。",
+        "required_classes_and_functions": [
+          "AgentEvalCase(case_id: str, category: str, modality: str, input_payload: str, expected_blocked: bool, expected_findings: list[str], secret_canary: str | None = None, workload_group: str = \"default\")",
+          "AgentEvalMetrics(total_cases: int, diagnosis_accuracy: float, false_positive_rate: float, json_validity_rate: float, leakage_count: int, secret_block_rate: float, critic_recovery_rate: float, latency_p95_ms: float, tokens_per_case: int | None)",
+          "run_agent_eval_suite(cases: Sequence[AgentEvalCase], runner: Callable[[AgentEvalCase], dict[str, Any]], *, guardrail: AgentGuardrailClient | None = None) -> AgentEvalMetrics",
+          "compare_agent_variants(suite_path: Path, baseline_runner, candidate_runner, *, export_golden_dir: Path | None = None) -> dict[str, Any]"
+        ],
+        "behavior_rules": [
+          "suite-agent-safety-v1.json 至少包含 12 条离线确定性样例，覆盖：SQL 注入修复、硬编码密钥外泄拦截、Prompt 注入越权删表拦截、PII 不可逆还原检查、K8s 特权 Pod 检查、正常安全代码零误报放行。",
+          "使用 canary token 检查出站脱敏后载荷与最终报告中是否出现 secret_canary 原文，只要命中 1 次即累加 leakage_count 并强制判 FAIL。",
+          "指标字段与 core/eval/repository.py::compare_metrics 完全对齐（diagnosis_accuracy, false_positive_rate, json_validity_rate, latency_p95_ms, tokens_per_case, outcome_pass_rate），严格不补零（tokens_per_case 无真实计数时传 None）。",
+          "当指定 export_golden_dir 时，自动通过 core/benchmark/golden.py::export_golden_dataset 执行防泄漏切分与二次复检。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止使用固定写死的假通过率或给 None 指标补 0",
+        "禁止把测试样例里的真实私钥/合规禁止前缀写进 suite JSON（canary 必须使用无害自定义前缀如 CANARY_SEC_TOKEN_xxx）"
+      ],
+      "acceptance_criteria": [
+        "内置确定性基准套件 suite-agent-safety-v1.json 至少 12 条用例能零外部网络依赖离线跑通",
+        "能真实测出 Baseline（无护栏/旧策略）出现 leakage 或低准确率，Candidate（启用 AgentGuardrailClient + AppSec/Critic）leakage_count=0 且 compare_metrics 给出准确判决",
+        "若指定 export_golden_dir，金标导出通过二次复检且 leakage_count=0"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_agent_eval.py -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-06",
+      "track": "Track A + Track B (CI Workflow & Desktop Integration)",
+      "title": "接入 GitHub Actions 安全门禁并联动桌面端真实评测/仓库扫描入口",
+      "depends_on": [
+        "STEP-03",
+        "STEP-05"
+      ],
+      "target_files": [
+        ".github/workflows/aegisforge-gate.yml",
+        "apps/desktop/launcher.py",
+        "apps/desktop/NativeShell.cs",
+        "tests/unit/test_desktop_launcher.py"
+      ],
+      "design_spec": {
+        "purpose": "让 CI/CD 门禁和通用评测成果在 GitHub Actions 与 AegisForge.exe 桌面端可见、可一键触发，并将桌面端「评测与数据」视图接入真实本地评测报告输出。",
+        "behavior_rules": [
+          "新增 .github/workflows/aegisforge-gate.yml：在 push/pull_request 时安装依赖并执行 python -m apps.cli.secops_gate --repo . --fail-on P0 --sarif-out runs/ci-gate.sarif --markdown-summary runs/ci-gate.md（保留原 .github/workflows/ci.yml 不破坏现有 CI）。",
+          "在 apps/desktop/launcher.py 新增两个 CLI 子命令桥接：1) --scan-repo <path>（调用 collect_repo_inventory + scan_repository 返回脱敏发现摘要与 SARIF 路径）；2) --run-guardrail-eval（运行 suite-agent-safety-v1.json 真实对比并将结果持久化至 runs/eval/guardrail-eval-latest.json）。",
+          "升级 launcher.py::get_eval_and_data_summary：优先读取 runs/eval/guardrail-eval-latest.json 的真实实测指标执行 compare_metrics()，并显式返回 data_source=\"LIVE_EVAL\" 或 \"BASELINE_SNAPSHOT\"，绝不伪造实测数据。",
+          "在 NativeShell.cs 的「评测与数据」视图增加「运行护栏基准评测」按钮（调用 --run-guardrail-eval）与来源标签，以及「本地代码库安全扫描」快捷触发，随后运行 scripts/build_desktop_app.ps1 重建 AegisForge.exe。"
+        ]
+      },
+      "forbidden_actions": [
+        "禁止删除或修改现有 .github/workflows/ci.yml 中的既有 Job",
+        "禁止破坏 NativeShell.cs 已有六个导航视图与长按蓄力审批动效"
+      ],
+      "acceptance_criteria": [
+        "launcher.py --scan-repo . 与 --run-guardrail-eval 均返回结构化 JSON（status=ok）",
+        "运行 --run-guardrail-eval 后，--eval-summary 能读取真实护栏评测报告并返回 data_source=LIVE_EVAL",
+        "scripts/build_desktop_app.ps1 成功编译出最新的 dist/AegisForge.exe"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_desktop_launcher.py tests/unit/test_v41_repo_gate.py tests/unit/test_v41_agent_eval.py -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "STEP-07",
+      "track": "Verification & Documentation Closeout",
+      "title": "全量回归测试、CI 自检与 README 复用指南同步",
+      "depends_on": [
+        "STEP-06"
+      ],
+      "target_files": [
+        "README.md",
+        "tests/unit/test_v41_repo_gate.py",
+        "tests/unit/test_v41_guardrails_sdk.py",
+        "tests/unit/test_v41_agent_eval.py"
+      ],
+      "design_spec": {
+        "purpose": "完成全量测试门禁核验，并在 README 中补充「1. 如何在任意后端仓库使用 aegisforge-gate 做 CI/CD 门禁」与「2. 如何在其他 AI Agent 项目中复用 core.guardrails 与 core.eval」。",
+        "behavior_rules": [
+          "在 README.md 增加清晰、精炼的使用示例：aegisforge-gate CLI 示例与 core.guardrails / core.eval 最小接入代码片段。",
+          "依次执行 V4.1 新增单测、全量 tests/unit、scripts/ci_check.ps1 与 scripts/build_desktop_app.ps1，如实记录每一条命令输出（包括 Docker daemon 未启动时跳过的条目，不得谎报全过）。"
+        ]
+      },
+      "acceptance_criteria": [
+        "新增 V4.1 单测全部通过，既有全量 tests/unit 无新增失败",
+        "scripts/ci_check.ps1 以 exit code 0 通过 compileall、pytest 与 Secret Scan",
+        "README.md 包含准确的命令、路径与接入示例"
+      ],
+      "verification_command": "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1"
+    }
+  ],
+  "final_acceptance_gate": {
+    "required_commands": [
+      ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v41_repo_gate.py tests/unit/test_v41_guardrails_sdk.py tests/unit/test_v41_agent_eval.py tests/unit/test_desktop_launcher.py -o addopts=\"\" -q -p no:cacheprovider",
+      ".\\.venv\\Scripts\\python.exe -m pytest tests/unit -o addopts=\"\" -q -p no:cacheprovider",
+      "powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1",
+      "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1"
+    ],
+    "reporting_rules_for_executor": [
+      "如实汇报所有实际执行过的命令与通过/失败/跳过计数，禁止隐瞒跳过的检查（如 docker daemon 不可用）。",
+      "不得在未收到用户明确指令前执行 git push。"
+    ]
+  }
+}

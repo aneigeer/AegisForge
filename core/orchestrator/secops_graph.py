@@ -80,6 +80,8 @@ class SecOpsOrchestrator:
         memory: Any | None = None,
         budget: GraphBudget | None = None,
         sandbox: Any | None = None,
+        patch_verifier: Callable[..., Any] | None = None,
+        repo_root: Any | None = None,
     ) -> None:
         self.plugins = plugins
         self.gateway = gateway or MultimodalPrivacyGateway()
@@ -88,6 +90,8 @@ class SecOpsOrchestrator:
         self.memory = memory
         self.budget = budget or GraphBudget()
         self.sandbox = sandbox
+        self.patch_verifier = patch_verifier
+        self.repo_root = repo_root
         self.tools = plugins.build_tool_client(audit=self.audit, actor_role=RbacRole.SEC.value)
         self._graphs: dict[str, CompiledStateGraph] = {}
         if sandbox is not None:
@@ -95,6 +99,15 @@ class SecOpsOrchestrator:
                 attach = getattr(plugin, "attach_sandbox", None)
                 if callable(attach):
                     attach(sandbox)
+        if patch_verifier is not None:
+            self._attach_patch_verifier(patch_verifier, repo_root)
+
+    def _attach_patch_verifier(self, verifier: Callable[..., Any], repo_root: Any | None) -> None:
+        """把隔离工作区校验器注入支持该能力的插件（当前为 appsec）。"""
+        for plugin in self.plugins.plugins():
+            attach = getattr(plugin, "attach_isolated_verifier", None)
+            if callable(attach):
+                attach(verifier, repo_root=repo_root)
 
     # -- 对外入口 ------------------------------------------------------
     def run(

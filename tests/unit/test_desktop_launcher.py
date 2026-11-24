@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -13,8 +14,10 @@ from apps.desktop.launcher import (
     main,
     pick_port,
     run_desktop_golden_export,
+    run_guardrail_eval,
     run_local_diagnosis,
     save_local_byok_config,
+    scan_local_repo,
 )
 
 
@@ -110,5 +113,69 @@ def test_eval_summary_respects_same_direction_verdict_and_golden_export(tmp_path
     summary_conflict = get_eval_and_data_summary(repo_root=tmp_path, conflict_mode=True)
     assert summary_conflict["verdict"] == "INCONCLUSIVE"
     assert summary_conflict["reason"] == "MIXED_DIRECTION"
+
+
+# ---------------------------------------------------------------------------
+# V4.1：桌面端真实仓库扫描与护栏基准评测入口
+# ---------------------------------------------------------------------------
+def _vulnerable_repo(root: Path) -> Path:
+    (root / "app").mkdir(parents=True, exist_ok=True)
+    (root / "app" / "orders.py").write_text(
+        'def get_order(cur, order_id):\n'
+        '    cur.execute("SELECT * FROM orders WHERE id = " + order_id)\n'
+        '    return cur.fetchone()\n\n'
+        'DB_PASSWORD = "desktop-fixture-pass-7788"\n',
+        encoding="utf-8",
+    )
+    (root / "requirements.txt").write_text("requests==2.19.0\n", encoding="utf-8")
+    return root
+
+
+def test_scan_repo_returns_masked_summary_and_sarif(tmp_path: Path) -> None:
+    repo = _vulnerable_repo(tmp_path / "target")
+    payload = scan_local_repo(repo, repo_root=tmp_path)
+
+    assert payload["status"] == "ok"
+    assert payload["finding_count"] >= 3
+    assert payload["highest_priority"] == "P0"
+    assert Path(payload["sarif_path"]).is_file()
+    # 返回的是 public_view：不含 evidence 字段，也不得出现凭据明文
+    rendered = json.dumps(payload, ensure_ascii=False)
+    assert "desktop-fixture-pass-7788" not in rendered
+    assert all("evidence" not in item for item in payload["findings"])
+
+
+def test_run_guardrail_eval_persists_live_report(tmp_path: Path) -> None:
+    payload = run_guardrail_eval(repo_root=tmp_path)
+
+    assert payload["status"] == "ok"
+    assert payload["verdict"] == "CANDIDATE_BETTER"
+    assert payload["data_source"] == "LIVE_EVAL"
+    assert payload["leakage"]["candidate"] == 0
+    report_path = Path(payload["report_path"])
+    assert report_path.is_file()
+
+    stored = json.loads(report_path.read_text(encoding="utf-8"))
+    assert stored["suite_version"]
+    assert stored["golden"]["leakage_count"] == 0
+
+    summary = get_eval_and_data_summary(repo_root=tmp_path)
+    assert summary["data_source"] == "LIVE_EVAL"
+    assert summary["verdict"] == "CANDIDATE_BETTER"
+    assert summary["guardrail_eval"]["leakage_candidate"] == 0
+
+
+def test_cli_scan_repo_and_guardrail_eval_emit_json(tmp_path: Path, capfd) -> None:
+    repo = _vulnerable_repo(tmp_path / "target")
+
+    assert main(["--scan-repo", str(repo)]) == 0
+    scan_json = json.loads(capfd.readouterr().out.strip())
+    assert scan_json["status"] == "ok"
+    assert scan_json["finding_count"] >= 1
+
+    assert main(["--run-guardrail-eval"]) == 0
+    eval_json = json.loads(capfd.readouterr().out.strip())
+    assert eval_json["status"] == "ok"
+    assert eval_json["verdict"] in {"CANDIDATE_BETTER", "INCONCLUSIVE", "BASELINE_BETTER"}
 
 

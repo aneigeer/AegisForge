@@ -1,0 +1,71 @@
+name: aegisforge-gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: aegisforge-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repo-security-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # 阻断线：只看本次 PR 变更的文件，避免历史遗留夹具把门禁永久染红。
+      - name: 增量安全门禁（阻断）
+        if: github.event_name == 'pull_request'
+        run: |
+          python -m apps.cli.secops_gate \
+            --repo . \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --fail-on P0 \
+            --sarif-out runs/ci-gate-pr.sarif \
+            --markdown-summary runs/ci-gate-pr.md
+
+      # 基线观测：全量扫描。本仓库自身携带大量"故意构造漏洞"的评测夹具，
+      # 因此全量结果作为 SARIF 上报与趋势观测，不作为阻断条件（增量步骤才是阻断线）。
+      - name: 全量基线扫描（观测 + SARIF）
+        run: |
+          python -m apps.cli.secops_gate \
+            --repo . \
+            --fail-on P0 \
+            --sarif-out runs/ci-gate.sarif \
+            --markdown-summary runs/ci-gate.md
+        continue-on-error: true
+
+      - name: 上传门禁报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegisforge-gate-reports
+          path: |
+            runs/ci-gate*.sarif
+            runs/ci-gate*.md
+          if-no-files-found: warn
+
+      - name: 上传 SARIF 到代码扫描
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: runs/ci-gate.sarif
+          category: aegisforge-gate
+        continue-on-error: true

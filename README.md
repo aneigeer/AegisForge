@@ -1,105 +1,193 @@
 # AegisForge
 
-**企业级零信任全栈安全与多 Agent 自进化修复平台（Zero-Trust AI Harness & Multi-Agent Security Ops）**
+**零信任 AI 护栏工程与多 Agent 安全运维平台（Zero-Trust AI Harness, Multi-Agent SecOps & Reusable Guardrails）**
 
-[![Tests](https://img.shields.io/badge/Unit_Tests-1,970_passed-10b981.svg)](#五测试与验证)
-[![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#四快速开始)
-[![Platform](https://img.shields.io/badge/Desktop-AegisForge.exe-6366f1.svg)](#三原生桌面工作台与特色交互)
-[![Architecture](https://img.shields.io/badge/Architecture-4_Layers_%C2%B7_10_Modules-f59e0b.svg)](#二四层十模块架构)
+[![Tests](https://img.shields.io/badge/Unit_Tests-2,060_passed-10b981.svg)](#六测试与验证)
+[![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#五快速开始)
+[![Desktop](https://img.shields.io/badge/Desktop-AegisForge.exe_(6_Views)-6366f1.svg)](#三原生桌面工作台与特色交互)
+[![Architecture](https://img.shields.io/badge/Architecture-StateGraph_%C2%B7_4_Plugins-f59e0b.svg)](#二系统架构与多-agent-协同)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-> 面向企业级异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）与后端服务代码的**零信任漏洞探测、AST 级出站双向可逆脱敏、双轨沙箱 Harness 验证、画布内长按 HITL 人工审批及受控自主进化平台**，持续演进**后端代码安全审计与多 Agent 协同调度（Multi-Agent Collaboration）**。
+> 面向**异构数据库（PostgreSQL / MySQL / Redis / TiDB / Oracle）**与**后端服务代码 / 云原生配置**的零信任安全运维平台：以 **StateGraph 确定性多 Agent 编排**、**多模态双向可逆脱敏网关**、**双轨/隔离沙箱自愈（Critic Harness）**、**HITL 长按蓄力审批**与 **WORM 审计链**为底座，同时将 **CI/CD 安全门禁 CLI（`aegisforge-gate`）**、**通用 Agent 护栏 SDK（`core.guardrails`）**与**防泄漏评测中台（`core.eval`）**独立解耦，支持直接复用到其他 AI Agent 项目。
 
-> **项目状态：技术预览（TECH_PREVIEW）**。接口、规则与部署方式可能变化，不建议直接用于生产环境；已知限制见 [docs/w12/known-limitations.md](docs/w12/known-limitations.md)，安全披露流程见 [SECURITY.md](SECURITY.md)。
+> **项目状态：技术预览（TECH_PREVIEW）**。接口、规则与部署方式持续演进中，不建议未评估直接用于生产环境；已知边界见 [docs/w12/known-limitations.md](docs/w12/known-limitations.md)，安全披露流程见 [SECURITY.md](SECURITY.md)。
 
 ---
 
 ## 目录
 
-- [一、为什么需要 AegisForge？](#一为什么需要-aegisforge)
-- [二、四层十模块架构](#二四层十模块架构)
+- [一、核心定位与四大护栏](#一核心定位与四大护栏)
+- [二、系统架构与多 Agent 协同](#二系统架构与多-agent-协同)
 - [三、原生桌面工作台与特色交互](#三原生桌面工作台与特色交互)
-- [四、快速开始](#四快速开始)
-- [五、测试与验证](#五测试与验证)
-- [六、演进路线图：迈向「数据库 + 后端代码」多 Agent 协同调度](#六演进路线图迈向数据库--后端代码多-agent-协同调度)
-- [七、目录结构与安全不变量](#七目录结构与安全不变量)
+- [四、开箱复用指南：CI/CD 门禁、护栏 SDK 与评测中台](#四开箱复用指南cicd-门禁护栏-sdk-与评测中台)
+- [五、快速开始](#五快速开始)
+- [六、测试与验证](#六测试与验证)
+- [七、目录结构、技术规范与安全红线](#七目录结构技术规范与安全红线)
 
 ---
 
-## 一、为什么需要 AegisForge？
+## 一、核心定位与四大护栏
 
-将大模型 Agent 引入企业生产环境（尤其是数据库与核心后端服务），最大的障碍不是模型推理能力不足，而是**数据合规出域、概率性幻觉、长事务锁雪崩与不可逆变更风险**。AegisForge 采用 **「胖控制面（内网集群）+ 瘦桌面端（零凭据安全工作台）」** 架构与 **Harness Engineering（护栏工程）** 设计，确保：
+将大模型 Agent 引入数据库与核心后端研发链路，最大瓶颈往往不是推理能力，而是**敏感数据出域、幻觉误修改、生产锁雪崩与缺乏客观回归评测**。AegisForge 采用 **「胖控制面 + 瘦桌面端（零凭据工作台）」** 与 **Harness Engineering（护栏工程）** 设计，落地四道工程防线：
 
-1. **隐私不出域**：外发外部模型 API 前，基于 SQL 词法/AST 节点精准替换真实表名、字段名、IP 与 PII 敏感值；映射表由 `Fernet / KMS` 加密按 `workflow_run_id` 持久化，返回 SQL 先做本地语法校验再精准还原，闭环立即销毁。
-2. **零幻觉上生产**：采用**双轨沙箱验证（Harness）**——轨道 1 在同版本瞬时容器/温备池中先跑 PoC 消除误报，再 Dry-Run 修复与回滚脚本并回放脱敏业务 SQL；轨道 2 只读采集生产表行数、体积与 `>30s` 活跃长事务，自动拦截 MDL 锁雪崩风险。
-3. **强制可逆与双期熔断**：所有修复方案强制附带 `Rollback` 脚本与外层会话级锁超时保护（`lock_wait_timeout = 3` / `lock_timeout = '3s'`）；执行后提供 **0~5 分钟实时熔断自动回滚** 与 **24~72 小时 SIEM 延迟观察期「一键紧急恢复」**。
-4. **受控自主进化**：支持「**自主进化（Shadow Mode 影子测试）**」与「**纯静态确定性模式**」一键切换；仅从误报与人工修改中蒸馏检测规则和领域记忆，支持 Git 风格版本快照秒级回滚。
+1. **多模态双向可逆脱敏（Privacy Gateway）**：出站调用外部 LLM 前，按载荷格式自动路由至 SQL AST / YAML / Code / Text 处理器替换敏感标识符与凭据；映射表经 `Fernet / KMS` 信封加密绑定 `workflow_run_id` 与 TTL 持久化，入站先校验语法结构再精准还原，PII 令牌永久保持掩码且闭环销毁。
+2. **确定性 StateGraph 与 Critic 对抗自愈**：以有向状态机代替自由对话，由 `Supervisor` → `Triage` → 领域专家 Agent → `Critic` 形成闭环；沙箱验证或红队检查不通过时自动打回专家 Agent 修正（硬上限 `max_self_correction_rounds = 3`），超限挂起转人工，杜绝死循环与带病放行。
+3. **双轨验证、CI 沙箱与双期熔断回滚**：数据库变更支持沙箱容器 PoC/Dry-Run 与生产只读长事务（`>30s`）预检，强制注入会话锁超时（`lock_wait_timeout = 3` / `lock_timeout = '3s'`）及 **0~5m 实时熔断 + 24~72h SIEM 一键恢复**；本地仓库修复补丁在 `tempfile` 隔离目录中真实试打、执行 `py_compile`/单测并校验逆向回滚哈希，不污染源仓库。
+4. **通用护栏 SDK 与防泄漏评测门控**：将脱敏门控、高危工具审批拦截与防泄漏评测抽成独立无重依赖包（`core.guardrails` + `core.eval`），支持 A/B 指标门控与金标数据集防泄漏二次复检。
 
 ---
 
-## 二、四层十模块架构
+## 二、系统架构与多 Agent 协同
+
+### 2.1 StateGraph 多 Agent 协同拓扑
 
 ```mermaid
-flowchart TB
-    subgraph L1["1. 交互编排层 (Interaction & Orchestration)"]
-        M01["M01 工作流可视化编排引擎<br/>S型DAG · 条件分流 · HITL断点"]
-        M02["M02 资产与凭据管理模块<br/>异构纳管 · 业务标签 · Vault/KMS动态租约"]
-    end
+flowchart TD
+    Input["巡检任务 / SIEM 告警 / Git PR 门禁"] --> Sup["Supervisor Agent<br/>任务拆解 · 跨资产分发"]
+    Sup --> Triage["Triage Agent<br/>上下文定级 (P0~P3) · 降噪过滤"]
+    Triage --> Router{"按资产域路由"}
 
-    subgraph L2["2. 检测验证层 (Detection & Verification Harness)"]
-        M03["M03 多维漏洞检测引擎<br/>令牌桶限流 · CIS/等保 · CVE · 存储过程"]
-        M04["M04 上下文风险定级模块<br/>业务等级 × 暴露面 × PII密度 · 噪音过滤"]
-        M05["M05 修复生成与执行保护<br/>三层方案 · 强制Rollback · 锁超时 · 双期回滚"]
-        M06["M06 双轨沙箱验证 Harness<br/>瞬时容器/温备池PoC+DryRun · 生产长事务预检"]
-    end
+    Router --> DB["DB-Agent<br/>数据库加固与慢查询优化"]
+    Router --> AppSec["AppSec-Agent<br/>源码审计 · SCA · Code Patch"]
+    Router --> K8s["K8s-Agent<br/>YAML/RBAC/NetworkPolicy"]
+    Router --> Host["Host-Agent<br/>SSH/内核基线 · Ansible"]
 
-    subgraph L3["3. AI 与进化层 (AI Gateway & Evolution)"]
-        M07["M07 统一模型网关与 AST 脱敏<br/>L1本地/L2强推理路由 · AST节点替换 · 加密持久化"]
-        M08["M08 可开关自主进化引擎<br/>静态/进化开关 · Shadow Mode · Git版本回滚"]
-    end
-
-    subgraph L4["4. 企业治理层 (Enterprise Governance & Audit)"]
-        M09["M09 权限与审批流模块<br/>多租户 · 三权分立RBAC · 飞书/钉钉/Jira工单"]
-        M10["M10 全链路审计与生态集成<br/>WORM SHA-256哈希链 · SARIF v2.1.0 · CMDB/SIEM"]
-    end
-
-    M02 --> M01 --> M03 --> M04 --> M07 --> M05 --> M06 --> M09 --> M08 --> M10
+    DB & AppSec & K8s & Host -->|"方案 + Rollback"| Critic["Critic & Harness Agent<br/>沙箱校验 · 锁预检 · 回滚验证"]
+    Critic -->|"失败打回自愈 (<=3轮)"| Router
+    Critic -->|"验证通过 / 超限转人工"| HITL{"HITL 长按蓄力审批"}
+    HITL -->|"批准"| Exec["受控执行 · 超时熔断 · 观察期"]
+    HITL -->|"驳回 / 修改 Diff"| Evo["Evolution Agent<br/>规则蒸馏 · Shadow Mode"]
+    Exec --> Audit["WORM SHA-256 审计链 & SARIF v2.1.0"]
+    Exec -.->|"复盘反馈"| Evo
 ```
 
-核心编排与 V2.0 生产增强模块位于 [core/platform/ten_modules.py](core/platform/ten_modules.py)，相关技术规格详见：
-- 详细架构与功能大纲：[docs/platform-detailed-outline.md](docs/platform-detailed-outline.md)
-- V2.0 生产增强执行规范（JSON）：[docs/v2-production-enhancement-spec.json](docs/v2-production-enhancement-spec.json)
+### 2.2 四层十模块核心底座与四大领域插件
+
+底层治理沿用四层十模块引擎（[core/platform/ten_modules.py](core/platform/ten_modules.py)），并通过统一四接口契约（`DomainProbe` / `DomainMasker` / `DomainSandboxHarness` / `DomainRollbackExecutor`，见 [core/plugins/contracts.py](core/plugins/contracts.py)）接入四大业务域：
+
+| 业务域插件 | 核心代码位置 | 探测与脱敏范围 | 沙箱验证与回滚能力（如实边界说明） |
+| --- | --- | --- | --- |
+| **Database（纵深核心）** | [core/plugins/database/plugin.py](core/plugins/database/plugin.py) | 限流只读探测 + CIS/等保基线 + SQL AST 双向脱敏 | MySQL 8 / PostgreSQL 16 真实双引擎靶场 + 双轨沙箱 + `Rollback SQL` 与双期紧急回滚 |
+| **AppSec（后端源码与依赖）** | [core/plugins/appsec/plugin.py](core/plugins/appsec/plugin.py)<br/>[core/plugins/appsec/ci_harness.py](core/plugins/appsec/ci_harness.py) | SQL 注入、N+1 查询、硬编码凭据、IDOR（启发式）与离线依赖 SCA | 生成 unified diff Patch + 联动 DB 加固 SQL；在 `tempfile` 隔离目录真实打补丁、`py_compile`/单测并校验逆向 Patch 还原 |
+| **K8s（云原生清单）** | [core/plugins/k8s/plugin.py](core/plugins/k8s/plugin.py) | 特权容器、宿主命名空间共享、root 运行、RBAC 通配、缺失 NetworkPolicy；YAML 双向脱敏 | 消费采集清单与本地 YAML 文件，结构级 `dry-run` 校验与声明式回退（不依赖外部真实 K8s 集群） |
+| **Host（主机基线）** | [core/plugins/host/plugin.py](core/plugins/host/plugin.py) | `sshd` 配置、内核 CVE、全局可写目录、`sudo` 无密码；IP/主机名/路径/用户脱敏 | 消费采集好的主机基线事实，生成幂等 Ansible Playbook 与逆向回滚脚本（不直接发起远程 SSH 执行） |
 
 ---
 
 ## 三、原生桌面工作台与特色交互
 
-项目提供**零浏览器依赖**的纯原生 Windows 桌面客户端 `AegisForge.exe`（由 `scripts/build_desktop_app.ps1` 本地编译生成；源码 [apps/desktop/NativeShell.cs](apps/desktop/NativeShell.cs) + 本地引擎桥接 [apps/desktop/launcher.py](apps/desktop/launcher.py)），包含五大核心视图：
+项目提供**零浏览器依赖**的纯原生 Windows 桌面客户端 `AegisForge.exe`（源码 [apps/desktop/NativeShell.cs](apps/desktop/NativeShell.cs) + 引擎桥接 [apps/desktop/launcher.py](apps/desktop/launcher.py)，由 [scripts/build_desktop_app.ps1](scripts/build_desktop_app.ps1) 本地编译生成），包含**六大核心视图**：
 
 | 视图 | 对应模块 | 核心功能 |
 | --- | --- | --- |
-| **1. 工作流编排** | `M01 / M05 / M06 / M09` | 8 节点可拖拽 S 型 DAG 画布 + 右侧 4-Tab 检视器（`修复 SQL` / `Rollback 回滚` / `双轨验证报告` / `脱敏对比`）+ 底部长按边框蓄力审批栏 |
-| **2. 资产与凭据** | `M02 / M04` | 零信任统计卡 + 异构数据库实例清单（显示瞬时容器/常驻温备池策略、Vault 动态凭据、上下文风险分）+ CMDB 增量同步 |
-| **3. 模型网关与脱敏** | `M07` | L1 本地 (`vLLM/Ollama`) + L2 云端 (`BYOK`) + L2-B 灾备集群三层路由 + AST 四重脱敏开关 + 实时脱敏预览 |
-| **4. 自主进化中心** | `M08` | 自主进化 / 纯静态确定性模式联动横幅 + 影子测试指标卡 + Git 风格快照历史与一键回滚 |
-| **5. 审计日志** | `M09 / M10` | 24~72h 延迟观察期 SIEM 监控横幅与「一键紧急恢复」+ WORM SHA-256 哈希链审计表 + 导出 SARIF 报告 + 三权分立 RBAC 角色切换 |
+| **1. 工作流编排** | `M01 / M05 / M06 / M09` | 8 节点可拖拽 S 型 DAG 画布 + 右侧 4-Tab 检视器（`修复 SQL` / `Rollback 回滚` / `双轨验证报告` / `脱敏对比`）+ 长按边框蓄力审批栏 |
+| **2. 资产与凭据** | `M02 / M04` | 零信任统计卡 + 异构数据库实例清单（瞬时容器/温备池策略、Vault 动态凭据、上下文风险分）+ CMDB 增量同步 |
+| **3. 模型网关与脱敏** | `M07` | L1 本地 (`vLLM/Ollama`) + L2 云端 (`BYOK`) + L2-B 灾备路由 + 多模态四重脱敏开关 + 实时脱敏预览 |
+| **4. 自主进化中心** | `M08` | 自主进化 / 纯静态确定性模式开关横幅 + Shadow Mode 影子测试指标 + Git 风格快照历史与一键回滚 |
+| **5. 审计日志** | `M09 / M10` | 24~72h SIEM 观察期监控与「一键紧急恢复」+ WORM SHA-256 哈希链审计表 + 跨栈 SARIF 导出 + 三权分立 RBAC 切换 |
+| **6. 评测与数据** | `Eval & Golden` | 直连 `core/eval` 与 `core/benchmark/golden.py`，支持 **⚡ 运行护栏基准评测**（读入真实 `LIVE_EVAL` 报告）、**⌕ 本地代码库安全扫描**与**一键导出金标防泄漏数据集** |
 
 ### 特色安全与交互设计
-- **长按边框蓄力防误触审批**：按住 `长按批准执行` 或 `长按驳回` 按钮时，霓虹进度条沿按钮四条边框顺时针填充；未满松开则弹性阻尼回弹清空；填满后触发窗口微震动并锁定状态，彻底防止生产高危误操作。
-- **双模式动效切换**：支持「**1.4 秒 SmoothStep 慢速圆心扩散主题切换**」（太阳/月亮图标旋转变形）与「**极速排障模式**」（一键关闭非必要过渡动效，实现 0ms 瞬切响应）。
+- **长按边框蓄力防误触审批**：按住 `长按批准执行` 或 `长按驳回` 按钮时，霓虹进度条沿按钮四条边框顺时针填充；未满松开则弹性阻尼回弹清空；填满后触发窗口微震动并锁定状态，彻底防止高危操作误触。
+- **双模式动效切换**：支持「**1.4 秒 SmoothStep 慢速圆心扩散主题切换**」与「**极速排障模式**」（一键关闭非必要过渡动效，实现 0ms 瞬切响应）。
 
 ---
 
-## 四、快速开始
+## 四、开箱复用指南：CI/CD 门禁、护栏 SDK 与评测中台
 
-### 方式 A：直接运行 / 编译原生桌面端（Windows）
+V4.1 将原本耦合在安全运维平台内的三大核心能力抽离为**零重型外部依赖（无需 Docker/K8s/SSH 靶机）**的可复用组件：
+
+### 4.1 在任意后端仓库使用 `aegisforge-gate` 做 CI/CD 安全门禁
+
+已在 `pyproject.toml` 注册命令行入口 `aegisforge-gate = "apps.cli.secops_gate:main"`，也可通过模块形式直接运行：
 
 ```powershell
-# 1. 直接双击根目录下的桌面客户端
+# 1. 全量扫描 + 门禁阻断（命中 >= P0 返回退出码 2，通过返回 0，参数/路径异常返回 1）
+.\.venv\Scripts\python.exe -m apps.cli.secops_gate `
+  --repo . `
+  --fail-on P0 `
+  --sarif-out runs/ci-gate.sarif `
+  --markdown-summary runs/ci-gate.md `
+  --patch-out runs/ci-gate.patch
+
+# 2. 只扫本次 Git PR 增量变更（PR 门禁推荐；git 失败时显式记录 warnings 并回退）
+.\.venv\Scripts\python.exe -m apps.cli.secops_gate --repo . --changed-only --base-ref origin/main --fail-on P1
+
+# 3. 开启隔离临时目录沙箱编译与测试验证（不修改源仓库文件）
+.\.venv\Scripts\python.exe -m apps.cli.secops_gate --repo . --fail-on P0 --run-sandbox-tests --test-cmd "pytest -q"
+
+# 4. 可选：触发 SecOpsOrchestrator 多 Agent 修复与 Critic 自愈环
+.\.venv\Scripts\python.exe -m apps.cli.secops_gate --repo . --fail-on P0 --run-agents
+```
+
+- **零重复规则**：[core/scanners/repo_scanner.py](core/scanners/repo_scanner.py) 直接复用 `AppSecProbe` 与 `K8sProbe` 规则；`requirements*.txt` / `pyproject.toml` / `package.json` 基于离线公告表 `OFFLINE_ADVISORIES` 执行零联网 SCA 检查。
+- **产物安全**：证据原文均经 `MultimodalPrivacyGateway` 脱敏后再产出 SARIF v2.1.0 / Markdown 摘要 / Patch，硬编码凭据 diff 在产物中自动遮蔽原文。
+- **GitHub Actions 已集成**：见 [.github/workflows/aegisforge-gate.yml](.github/workflows/aegisforge-gate.yml)（PR 增量阻断 + 全量基线 SARIF 上报）。
+
+### 4.2 在其他 AI Agent 项目复用 `core.guardrails` 安全护栏 SDK
+
+框架无关（不绑定 LangChain / LlamaIndex 等第三方 Agent 框架），5 行代码即可为任意外部 Agent 工具链加上出站脱敏、HITL 拦截与不可篡改审计链：
+
+```python
+from core.guardrails import AgentGuardrailClient, guard_tool_call
+
+client = AgentGuardrailClient()
+decision = client.guard_outbound("手机号 13800000000 的订单查询", workflow_run_id="wf-1")
+masked_prompt = decision.masked_payload
+restored_text = client.guard_inbound_restore(llm_output, workflow_run_id="wf-1")
+
+@guard_tool_call(risk_tier="P0")  # 未显式传入 hitl_approved=True 将抛出 GuardrailBlockedError
+def drop_table(name: str, hitl_approved: bool = False, workflow_run_id: str = "") -> str:
+    return f"dropped {name}"
+
+audit_events = client.export_audit_chain()  # 含 prev_hash 与 sha256，支持 verify_audit_chain() 校验
+```
+
+### 4.3 用 `core.eval` 做通用 Agent 护栏与防泄漏 A/B 评测
+
+内置离线确定性基准套件 [benchmarks/guardrails/suite-agent-safety-v1.json](benchmarks/guardrails/suite-agent-safety-v1.json)，指标与 [core/eval/repository.py](core/eval/repository.py) 完全对齐（缺测保留 `None`，绝不补 0），并支持导出防泄漏金标数据集：
+
+```python
+from pathlib import Path
+from core.eval.agent_benchmark import (
+    build_reference_runner,
+    compare_agent_variants,
+    load_agent_eval_suite,
+    run_agent_eval_suite,
+)
+from core.guardrails import AgentGuardrailClient
+
+suite = Path("benchmarks/guardrails/suite-agent-safety-v1.json")
+report = compare_agent_variants(
+    suite,
+    build_reference_runner(),                                  # Baseline：无护栏
+    build_reference_runner(guardrail=AgentGuardrailClient()),  # Candidate：启用护栏 + Critic
+    export_golden_dir=Path("runs/golden/agent-safety-v1"),     # 可选：清洗/切分/落盘二次复检
+)
+print(report["verdict"], report["leakage"])  # CANDIDATE_BETTER {'baseline': ..., 'candidate': 0}
+
+# 接入外部自定义 Agent：实现 runner(case) -> dict 即可
+metrics = run_agent_eval_suite(load_agent_eval_suite(suite), my_custom_runner)
+print(metrics.to_repository_metrics())
+```
+
+---
+
+## 五、快速开始
+
+### 方式 A：直接运行 / 构建原生桌面端（Windows）
+
+```powershell
+# 1. 直接启动根目录桌面客户端
 .\AegisForge.exe
 
-# 2. 若修改了界面源码，一条命令重新初始化主密钥并打包生成 AegisForge.exe 与 dist\AegisForge.exe
+# 2. 修改界面或桥接后重新初始化并打包生成 AegisForge.exe 与 dist\AegisForge.exe
 powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1
+
+# 3. 命令行直调桌面桥接功能
+.\.venv\Scripts\python.exe -m apps.desktop.launcher --scan-repo .
+.\.venv\Scripts\python.exe -m apps.desktop.launcher --run-guardrail-eval
+.\.venv\Scripts\python.exe -m apps.desktop.launcher --eval-summary
 ```
 
 ### 方式 B：完整控制面 API + 双引擎 Lab 环境
@@ -139,84 +227,68 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_docker_runtime.ps1
 
 ---
 
-## 五、测试与验证
+## 六、测试与验证
 
 ```powershell
-# 1. 运行十大核心模块与桌面桥接单元测试（当前 19 passed）
-.\.venv\Scripts\python.exe -m pytest tests/unit/test_ten_core_modules.py tests/unit/test_desktop_launcher.py -o addopts="" -q -p no:cacheprovider
+# 1. V4.1（仓库门禁 / 护栏 SDK / 评测引擎）与桌面桥接单元测试（47 passed in 4.23s）
+.\.venv\Scripts\python.exe -m pytest `
+  tests/unit/test_v41_repo_gate.py `
+  tests/unit/test_v41_guardrails_sdk.py `
+  tests/unit/test_v41_agent_eval.py `
+  tests/unit/test_desktop_launcher.py `
+  -o addopts="" -q -p no:cacheprovider
 
-# 2. 运行全量单元测试套件（当前 1,970 passed）
+# 2. 全量单元测试套件（2,060 passed in 33.14s）
 .\.venv\Scripts\python.exe -m pytest tests/unit -o addopts="" -q -p no:cacheprovider
 
-# 3. 运行本地全套 CI 检查（编译、全量单测、Compose 校验、密钥泄露扫描）
+# 3. 本地 CI 全套检查（compileall、全量单测、Compose 校验、密钥泄露扫描）
 powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1
 ```
 
-> **工程基线**：在最新回归验证中，全量单元测试 **`1,970 passed in 21.10s`**，核心十模块及桌面端桥接测试 **`19 passed`**。
+> **最新实测基线**：全量单元测试 **`2,060 passed, 1 warning in 33.14s`**；V4.1 + 桌面桥接专项测试 **`47 passed in 4.23s`**；[scripts/ci_check.ps1](scripts/ci_check.ps1) 在本地 Docker daemon 未启动时会跳过 `docker compose config` 并通过其余全部检查（退出码 `0`）。
 
 ---
 
-## 六、演进路线图：迈向「数据库 + 后端代码」多 Agent 协同调度
+## 七、目录结构、技术规范与安全红线
 
-当前的 **V2.0 生产增强版**已经打通了「**数据库漏洞探测 → AST 脱敏 → 双轨沙箱 → 分级回滚 → 自进化治理**」全链路。下一阶段（**V3.0 Multi-Agent DevSecOps**）将进一步把平台从**纯数据库防御**扩展为**「数据库 + 后端源码 + 运行时基础设施」协同定位与修复的多 Agent 调度中枢**：
-
-```mermaid
-flowchart LR
-    Coord["Coordinator Orchestrator Agent<br/>任务拆解 · 上下文路由 · 冲突消解 · HITL总闸门"]
-
-    DBAgent["DB Security Agent<br/>基线/CVE/慢查询/锁等待<br/>MDL预检 · 双轨沙箱验证"]
-    CodeAgent["Backend Code Audit Agent<br/>SQL注入/ORM滥用/越权漏洞<br/>N+1查询/硬编码密钥 · AST定位"]
-    FixAgent["Cross-Stack Remediation Agent<br/>联合生成 DB加固SQL + 后端Code Patch<br/>统一Rollback与回归测试"]
-    VeriAgent["Verification & Replay Agent<br/>容器化集成沙箱 (App+DB)<br/>PoC联动验证 · 兼容性压测"]
-    EvoAgent["Governance & Evolution Agent<br/>跨栈规则蒸馏 · Shadow Mode<br/>WORM审计 · SARIF联合报告"]
-
-    Coord <--> DBAgent
-    Coord <--> CodeAgent
-    DBAgent & CodeAgent --> FixAgent --> VeriAgent --> EvoAgent --> Coord
-```
-
-### V3.0 核心扩展规划
-
-1. **后端代码安全与性能联合审计 Agent（`Backend Code Audit Agent`）**
-   - **跨栈关联定位**：当 `DB Security Agent` 发现高危慢查询、全表扫描、未收敛事务或异常连接泄漏时，自动触发 `Code Audit Agent` 扫描后端源码（Python / Java / Go / Node.js）对应的 Repository / ORM / Service 调用链。
-   - **代码级缺陷检出**：覆盖字符串拼接 SQL 注入、ORM `N+1` 查询雪崩、长事务跨 RPC 调用持有数据库锁、越权访问控制（IDOR）以及源码中的明文 DSN / API Key 泄露。
-   - **AST 级脱敏一致性扩展**：将现有 `M07` 的 SQL AST 脱敏器扩展至后端代码（`Tree-sitter` AST 脱敏），在向外部大模型发送故障代码片段前同样实现业务逻辑标识符与凭据的双向可逆替换。
-2. **多 Agent 协同调度引擎（`Multi-Agent Orchestrator`）**
-   - **状态机升级**：基于现有 [core/platform/ten_modules.py](core/platform/ten_modules.py) 的 `WorkflowDagEngine` 与 [core/execution/dispatch_queue.py](core/execution/dispatch_queue.py) 的只追加派发队列，支持**主从编排（Coordinator-Worker）**与**并行扇出/扇入（Fan-out / Fan-in）**任务图。
-   - **跨栈联合沙箱（App + DB Harness）**：联合拉起后端应用测试镜像与同版本数据库沙箱，同时验证 **DB 修复 SQL + 后端代码 Patch** 的端到端兼容性与 PoC 阻断效果，杜绝“修好了库却挂掉了应用代码”的割裂问题。
-   - **统一 SARIF 跨栈报告**：在 `M10` 导出报告中同时归并数据库实例漏洞位置（`db://asset`）与后端源码文件行号（`file://src/...#L123`），直接接入企业 GitHub / GitLab PR 门禁。
-
----
-
-## 七、目录结构与安全不变量
+### 目录结构
 
 ```text
 apps/
-  api/                  FastAPI 控制面入口与路由（OpenAPI 3.1）
+  api/                  FastAPI 控制面入口与路由（含 /v1/secops 与 /v1/eval）
+  cli/                  CI/CD 安全门禁 CLI（aegisforge-gate / secops_gate.py）
   desktop/              Windows 原生客户端（NativeShell.cs + launcher.py）
   web/                  Web 调度台静态资源
 core/
-  platform/             四层十大核心模块编排与 V2.0 增强引擎（ten_modules.py）
-  agent/                Agent Loop、工具调度与上下文治理
-  security/             RedactionGate、SecretBox (Fernet)、InputGuard、RBAC/Policy
-  execution/            ToolGateway、Pre-flight 预检、只追加派发队列
-  knowledge/            3-Gate 两级人工确认晋升、LLM Wiki 编译与 Hybrid 检索
-  audit/                不可篡改 WORM 哈希链与 S3/MinIO Object Lock 归档
-  auth/                 OIDC/SSO 认证与三权分立权限控制
-  benchmark/ eval/      评测中台、金标回流与反幻觉统计门禁
+  orchestrator/         确定性 StateGraph 状态机与 SecOps 多 Agent 编排装配
+  agents/               Supervisor / Triage / Critic / Evolution 与四大领域专家 Agent
+  plugins/              四接口领域插件契约、SDK 跨栈 SARIF、Database/AppSec/K8s/Host 实现
+  privacy_gateway/      多模态双向可逆脱敏网关（SQL AST / YAML / JSON / Code / Text）
+  guardrails/           框架无关通用 Agent 安全护栏 SDK（脱敏 / 策略门控 / 哈希审计链）
+  scanners/             本地代码库与 Git Diff 增量采集适配器（repo_scanner.py）
+  platform/             V2.0 生产增强十模块核心引擎（ten_modules.py）
+  benchmark/ eval/      金标数据集防泄漏导出与通用 Agent A/B 评测中台
+  security/ auth/ audit/ RedactionGate、Fernet SecretBox、RBAC/OIDC、WORM 哈希链归档
+  knowledge/ memory/    3-Gate 两级晋升、Wiki 编译与跨领域共享记忆
 adapters/               PostgreSQL / MySQL 只读与受控适配层
-workers/                隔离执行 Worker
+benchmarks/             数据库基准套件（w10/suite-v2.json）与 Agent 安全套件（guardrails/）
 database/               17 支数据库迁移脚本（001–017）与只读/追加写权限初始化
 deploy/                 Docker 网络隔离拓扑与生产部署清单
-docs/                   ADR、平台详细架构大纲、V2.0 执行规范
-scripts/                一键构建桌面端 (build_desktop_app.ps1)、CI 检查、压测脚本
-tests/                  单元测试与集成测试（1,970+ 用例）
+docs/                   ADR、平台详细大纲与 V2.0/V3.0/V4.1 AI 执行规范 JSON
+scripts/                桌面端编译 (build_desktop_app.ps1)、CI 检查 (ci_check.ps1)、压测脚本
+tests/                  单元测试与集成测试（2,060+ 单元测试用例）
 ```
 
-### 核心安全不变量（Engineering Invariants）
+### 规范文档索引
+- 平台详细功能大纲：[docs/platform-detailed-outline.md](docs/platform-detailed-outline.md)
+- V2.0 生产增强执行规范：[docs/v2-production-enhancement-spec.json](docs/v2-production-enhancement-spec.json)
+- V3.0 多 Agent 演进执行规范：[docs/v3-multi-agent-secops-spec.json](docs/v3-multi-agent-secops-spec.json)
+- V4.1 CI/CD 门禁与护栏评测复用规范：[docs/v4.1-cicd-guardrails-eval-spec.json](docs/v4.1-cicd-guardrails-eval-spec.json)
+
+### 核心安全红线（Engineering Invariants）
 - **控制库只追加权限**：控制库账号 `dg_ctl` 对审计与事件表仅授予 `SELECT / INSERT`（禁止 `UPDATE / DELETE`）。
-- **凭证与映射零明文**：所有生产 DSN、BYOK Key 与 AST 脱敏映射表均经 `Fernet / KMS` 加密存储，桌面端零凭据落盘。
-- **失败闭环（Fail-Closed）**：策略缺失拒绝执行；缺少 `Rollback` 脚本禁止进入沙箱/生产；轨道 2 发现 `>30s` 活跃长事务自动挂起变更窗口。
+- **凭证与映射零明文**：所有生产 DSN、BYOK Key 与脱敏映射表均经 `Fernet / KMS` 加密存储，桌面端零凭据落盘；PII 永不明文还原。
+- **失败闭环（Fail-Closed）**：策略缺失、Critic 自愈超过 `3` 轮、缺少有效 `Rollback`、或轨道 2 发现 `>30s` 活跃长事务时一律阻断或转人工审批。
 
 ---
 
