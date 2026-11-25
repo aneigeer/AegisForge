@@ -1,0 +1,96 @@
+{
+  "schema_version": "5.0.1",
+  "product_name": "AegisForge",
+  "document_title": "AegisForge V5.0 收尾交付、仓库同步与主项目复用迁移清单",
+  "generated_at": "2026-11-25T19:16:00+08:00",
+  "current_status_snapshot": {
+    "git_branch": "main",
+    "latest_committed_head": "9e2badc (V4.1 已提交并推送至 github/main；gitee/main 落后 4 个提交)",
+    "working_tree_state": "V5.0 Bounded RSI 全套实现、单测、桌面端编译产物与 README 第八章已落地工作区（待提交）",
+    "untracked_scratch_files": [
+      ".screenshots/",
+      ".tmp_gh_jobs.json",
+      ".tmp_mysql_log.txt",
+      ".tmp_unit_log.txt"
+    ],
+    "verified_checks_2026_11_25": {
+      "v5_and_desktop_tests": "43 passed in 2.01s (tests/unit/test_v5_rsi_loop.py + test_v41_agent_eval.py + test_desktop_launcher.py)",
+      "rsi_cycle_cli": "S_0 (0.50) -> S_1 (0.80) -> S_2 (1.00), monotonic_gain=0.5, false_positive=0.0, leakage_count=0, worm_integrity_ok=true",
+      "ci_check_script": "exit 0 (compileall + tests/unit [100%] + secret scan 通过；docker compose config 因 daemon 未启动跳过)",
+      "desktop_binary": "dist/AegisForge.exe (103,936 bytes, 2026-11-24 22:41:49)",
+      "readme_links": "26 checked, 0 missing"
+    }
+  },
+  "closeout_and_next_steps": [
+    {
+      "step_id": "CLOSEOUT-01",
+      "priority": "P0_REQUIRED",
+      "title": "清理工作区遗留临时文件",
+      "description": "清理开发与截图调试留下的未跟踪临时文件，避免误提交或污染仓库目录。",
+      "targets_to_remove": [
+        ".screenshots/",
+        ".tmp_gh_jobs.json",
+        ".tmp_mysql_log.txt",
+        ".tmp_unit_log.txt"
+      ],
+      "commands": [
+        "Remove-Item -Recurse -Force .screenshots, .tmp_gh_jobs.json, .tmp_mysql_log.txt, .tmp_unit_log.txt -ErrorAction SilentlyContinue",
+        "git status -sb"
+      ],
+      "acceptance_criteria": "git status 中不再出现上述 4 项临时文件，且仅保留 V5.0 相关变更与规范文档。"
+    },
+    {
+      "step_id": "CLOSEOUT-02",
+      "priority": "P0_REQUIRED",
+      "title": "提交 V5.0 受控 RSI 变更并同步远程仓库",
+      "description": "将 V5.0 代码、测试、文档及收尾清单规范提交到本地 main，并推送到 GitHub 与 Gitee。",
+      "commands": [
+        "git add core/evolution core/agents/evolution.py core/agents/specialists/base_specialist.py core/eval/agent_benchmark.py core/guardrails/policies.py core/plugins/appsec/plugin.py benchmarks/rsi apps/desktop/launcher.py apps/desktop/NativeShell.cs tests/unit/test_desktop_launcher.py tests/unit/test_v5_rsi_loop.py docs/v5-bounded-rsi-spec.json docs/v5-closeout-and-handoff.json README.md",
+        "git commit -m \"feat(v5.0): 落地 Eval-Gated Bounded RSI 受控多代自进化闭环与桌面端集成\"",
+        "git push github main",
+        "git push gitee main"
+      ],
+      "acceptance_criteria": "git status 干净；github/main 与 gitee/main 均与本地 main 同步（ahead 0）。"
+    },
+    {
+      "step_id": "CLOSEOUT-03",
+      "priority": "P1_OPTIONAL_PORTFOLIO",
+      "title": "GitHub 仓库门面与 Release 打包展示（可选，5~10 分钟）",
+      "description": "提升开源作品集与求职展示直观度，无需改动核心功能代码。",
+      "actions": [
+        "运行 .\\AegisForge.exe，截取 2~3 张核心界面图（DAG 长按蓄力审批 / ◎ 评测与数据 / ✦ 自主进化中心 RSI 闭环结果）嵌入 README.md。",
+        "在 GitHub 创建一个 Release Tag（如 v0.5.0-tech-preview），上传 dist/AegisForge.exe 二进制附件。",
+        "按需在 GitHub Settings 将仓库名 dbg_harness 统一重命名为 AegisForge，并添加 ai-agent、guardrails、secops、stategraph 标签。"
+      ]
+    },
+    {
+      "step_id": "CLOSEOUT-04",
+      "priority": "P0_STRATEGIC_ROI",
+      "title": "停止在次要项目继续堆功能，将可复用组件迁入主项目",
+      "description": "AegisForge 已达到作品集封版状态，下一步应将通用护栏与评测能力抽用到你的 AI Agent 主项目。",
+      "reusable_modules_for_primary_project": [
+        {
+          "component": "通用 Agent 安全护栏 SDK",
+          "source_path": "core/guardrails/",
+          "underlying_dependency": "core/privacy_gateway/multimodal.py",
+          "capability": "出站多模态可逆脱敏 + 入站结构校验还原（PII 永久掩码）+ @guard_tool_call 高危拦截 + 哈希链审计"
+        },
+        {
+          "component": "防泄漏金标导出与 A/B 评测引擎",
+          "source_paths": [
+            "core/eval/agent_benchmark.py",
+            "core/eval/repository.py",
+            "core/benchmark/golden.py"
+          ],
+          "capability": "Canary 防泄漏检测 + 缺测不补零的 compare_metrics 门控 + 按 workload_group 隔离的防泄漏数据集导出"
+        },
+        {
+          "component": "受控多代策略进化框架",
+          "source_path": "core/evolution/",
+          "capability": "宪法锁隔离不可变内核 + 失败归因元反思 + Train/Holdout 防刷榜门控 + 自动回滚"
+        }
+      ],
+      "integration_pattern": "在主项目虚拟环境执行 pip install -e D:\\DBGuaredian 后即可直接 import core.guardrails 与 core.eval，或按需拷贝这三个目录独立使用。"
+    }
+  ]
+}

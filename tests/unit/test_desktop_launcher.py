@@ -179,3 +179,43 @@ def test_cli_scan_repo_and_guardrail_eval_emit_json(tmp_path: Path, capfd) -> No
     assert eval_json["verdict"] in {"CANDIDATE_BETTER", "INCONCLUSIVE", "BASELINE_BETTER"}
 
 
+# ---------------------------------------------------------------------------
+# V5.0：受控 RSI 闭环（Eval-Gated Bounded RSI）
+# ---------------------------------------------------------------------------
+def test_run_rsi_cycle_persists_report_and_real_gain(tmp_path: Path) -> None:
+    from apps.desktop.launcher import run_rsi_cycle
+
+    payload = run_rsi_cycle(repo_root=tmp_path, max_generations=3)
+
+    assert payload["status"] == "ok"
+    assert payload["initial_version"] == "S_0"
+    assert payload["final_version"] == "S_2"
+    assert payload["generations_executed"] >= 2
+    assert payload["initial_holdout_accuracy"] == 0.5
+    assert payload["final_holdout_accuracy"] == 1.0
+    assert payload["final_holdout_accuracy"] > payload["initial_holdout_accuracy"]
+    assert payload["monotonic_gain"] == 0.5
+    assert payload["worm_integrity_ok"] is True
+    assert "RSI_GENERATION_PROMOTED" in payload["worm_events"]
+
+    promoted = [record for record in payload["records"] if record["promoted"]]
+    assert [record["candidate_version"] for record in promoted] == ["S_1", "S_2"]
+    assert all(record["leakage_count"] == 0 for record in payload["records"])
+
+    report_path = Path(payload["report_path"])
+    assert report_path.is_file()
+    stored = json.loads(report_path.read_text(encoding="utf-8"))
+    assert stored["final_version"] == "S_2"
+    assert len(stored["lineage_sha256"]) == 64
+    # 策略仓库落在目标目录内，不污染代码仓库
+    assert str(tmp_path) in payload["store_root"]
+
+
+def test_cli_run_rsi_cycle_emits_structured_json(capfd) -> None:
+    assert main(["--run-rsi-cycle"]) == 0
+    payload = json.loads(capfd.readouterr().out.strip())
+    assert payload["status"] == "ok"
+    assert payload["final_holdout_accuracy"] > payload["initial_holdout_accuracy"]
+    assert payload["suite"]["workload_overlap"] == []
+
+

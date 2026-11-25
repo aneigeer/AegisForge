@@ -31,11 +31,17 @@ class EvolutionAgent(BaseAgent):
         engine: ToggleableEvolutionEngine | None = None,
         memory: Any | None = None,
         shadow_threshold: float = SHADOW_PASS_THRESHOLD,
+        shadow_evaluator: Any | None = None,
+        strategy_store: Any | None = None,
     ) -> None:
         super().__init__(context)
         self._engine = engine or ToggleableEvolutionEngine(EvolutionMode.SHADOW)
         self._memory = memory
         self._shadow_threshold = shadow_threshold
+        # V5.0：注入真实影子评估器后，shadow_score 来自实跑 Train/Holdout 的指标，
+        # 不再使用 _classify 里的固定常量；未注入时保持 V3.0 行为完全不变。
+        self._shadow_evaluator = shadow_evaluator
+        self._strategy_store = strategy_store
 
     def run(self, state: SecOpsState) -> NodeOutcome:
         tickets = {item.get("finding_id"): item for item in state.triage_tickets}
@@ -45,7 +51,8 @@ class EvolutionAgent(BaseAgent):
             kind = verdict.get("verdict")
             if kind == "REJECTED" and not verdict.get("exhausted"):
                 continue  # 自愈成功的中间轮次不产生蒸馏样本
-            action, note, shadow_score = self._classify(verdict, tickets)
+            action, note, legacy_score = self._classify(verdict, tickets)
+            shadow_score, shadow_source = self._shadow_decision(legacy_score)
             distilled = self._engine.distill_from_human_feedback(
                 str(verdict.get("finding_id", "")), action, note
             )
@@ -75,6 +82,7 @@ class EvolutionAgent(BaseAgent):
                     "mode": str(distilled.get("mode", self._engine.mode.value)),
                     "shadow_score": round(shadow_score, 4),
                     "shadow_passed": shadow_passed,
+                    "shadow_source": shadow_source,
                     "promoted_to_memory": promoted,
                 }
             )
@@ -112,6 +120,22 @@ class EvolutionAgent(BaseAgent):
         )
 
     # -- 内部 ----------------------------------------------------------
+    def _shadow_decision(self, legacy_score: float) -> tuple[float, str]:
+        """真实影子分值优先；无评估器时退回 V3.0 的固定分值（保持向后兼容）。"""
+        if self._shadow_evaluator is None:
+            return legacy_score, "LEGACY_CONSTANT"
+        try:
+            if self._strategy_store is not None:
+                bundle = self._strategy_store.get_active()
+            else:
+                from core.evolution.strategy_store import default_seed_bundle
+
+                bundle = default_seed_bundle()
+            score = float(self._shadow_evaluator.score(bundle))
+        except Exception:  # noqa: BLE001 - 评估器故障不得伪造"通过"
+            return 0.0, "SHADOW_EVALUATOR_ERROR"
+        return score, "SHADOW_EVALUATOR"
+
     def _classify(
         self,
         verdict: dict[str, Any],

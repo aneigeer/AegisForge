@@ -144,6 +144,21 @@ class DefaultAgentSafetyPolicy:
     def rules(self) -> tuple[PolicyRule, ...]:
         return self._rules
 
+    def with_additional_rules(self, rules: Sequence[PolicyRule]) -> "DefaultAgentSafetyPolicy":
+        """在基础规则之上**追加**规则（只增不减：同 rule_id 的追加项被忽略）。
+
+        V5.0 的 RSI 只能通过该入口"变强"——基础安全边界始终留在不可变内核里，
+        任何候选策略包都无法替换或删除它们。
+        """
+        existing = {rule.rule_id for rule in self._rules}
+        merged = list(self._rules)
+        for rule in rules:
+            if rule.rule_id in existing:
+                continue
+            merged.append(rule)
+            existing.add(rule.rule_id)
+        return DefaultAgentSafetyPolicy(merged)
+
     def describe(self) -> list[dict[str, Any]]:
         return [rule.to_dict() for rule in self._rules]
 

@@ -187,10 +187,19 @@ def resolve_suite_path(path: str | Path | None = None, *, repo_root: Path | None
 # ---------------------------------------------------------------------------
 # 检测适配（复用插件规则，不复制正则）
 # ---------------------------------------------------------------------------
-def detect_findings(payload: str, *, modality: str = "text") -> tuple[str, ...]:
-    """用既有探针/策略对单条载荷做本地检测，返回规范化标签集合。"""
+def detect_findings(
+    payload: str,
+    *,
+    modality: str = "text",
+    policy: DefaultAgentSafetyPolicy | None = None,
+) -> tuple[str, ...]:
+    """用既有探针/策略对单条载荷做本地检测，返回规范化标签集合。
+
+    ``policy`` 可用于注入策略包叠加后的规则（V5.0 RSI 运行时热绑定）；
+    缺省仍使用 :class:`DefaultAgentSafetyPolicy`，既有行为零变化。
+    """
     labels: set[str] = set()
-    policy = DefaultAgentSafetyPolicy()
+    policy = policy or DefaultAgentSafetyPolicy()
     for hit in policy.evaluate(payload):
         labels.add(_POLICY_LABEL_MAP.get(hit.category, hit.category))
 
@@ -552,6 +561,23 @@ def _export_golden(
     }
 
 
+def export_eval_cases_golden(
+    cases: Sequence[AgentEvalCase],
+    *,
+    export_golden_dir: Path,
+    suite_version: str,
+) -> dict[str, Any]:
+    """公开入口：把评测用例导出为金标集（canary 清洗 + 写盘二次复检）。
+
+    V5.0 的影子门控用它把 Holdout 用例留档，便于晋升后复核"当时到底测了什么"。
+    """
+    return _export_golden(
+        cases,
+        export_golden_dir=Path(export_golden_dir),
+        suite_version=suite_version,
+    )
+
+
 def compare_agent_variants(
     suite_path: Path,
     baseline_runner: Callable[[AgentEvalCase], dict[str, Any]],
@@ -605,6 +631,7 @@ __all__ = [
     "build_reference_runner",
     "compare_agent_variants",
     "detect_findings",
+    "export_eval_cases_golden",
     "load_agent_eval_suite",
     "resolve_suite_path",
     "run_agent_eval_suite",

@@ -25,10 +25,12 @@ class DomainSpecialistAgent(BaseAgent):
 
     domain: str = ""
 
-    def __init__(self, context: AgentContext) -> None:
+    def __init__(self, context: AgentContext, *, strategy_store: Any | None = None) -> None:
         super().__init__(context)
         if not self.domain:
             raise ValueError("领域专家 Agent 必须声明 domain")
+        # V5.0：仅显式注入时把激活策略包的 Prompt 指导带入提案备注
+        self._strategy_store = strategy_store
 
     def run(self, state: SecOpsState) -> NodeOutcome:
         ticket = state.current_ticket() or {}
@@ -70,6 +72,7 @@ class DomainSpecialistAgent(BaseAgent):
             )
 
         proposal: dict[str, Any] = dict(result.data)
+        self._apply_strategy(proposal)
         self._self_check(proposal)
 
         history = list(ticket.get("history", []))
@@ -120,6 +123,19 @@ class DomainSpecialistAgent(BaseAgent):
                 }
             ],
         )
+
+    def _apply_strategy(self, proposal: dict[str, Any]) -> None:
+        """注入策略仓库时，把激活版本的 Prompt 指导写入提案备注（默认行为不变）。"""
+        if self._strategy_store is None:
+            return
+        try:
+            active = self._strategy_store.get_active()
+        except Exception:  # noqa: BLE001 - 仓库未就绪时保持默认流程
+            return
+        notes = list(proposal.get("notes") or [])
+        notes.append(f"[strategy:{active.version_id}] generation={active.generation}")
+        notes.extend(f"[strategy:{active.version_id}] directive={item}" for item in active.prompt_directives)
+        proposal["notes"] = notes
 
     def _self_check(self, proposal: dict[str, Any]) -> None:
         """提交前自检：必然被打回的问题显式记录，仍交由 Critic 裁决。"""

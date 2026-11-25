@@ -187,6 +187,9 @@ namespace DBGuardianDesktop
         // VIEW 4: 自主进化中心
         private readonly List<EvoVersionItem> _evoVersions = new List<EvoVersionItem>();
         private RectangleF _btnEvoBannerToggleRect;
+        // V5.0：受控 RSI（Eval-Gated Bounded RSI）最近一次闭环结果
+        private RectangleF _btnRunRsiCycleRect;
+        private string _rsiSummaryText = "受控 RSI 闭环: 尚未运行（首次运行将从 S_0 基线开始多代评测）";
 
         // VIEW 5: 审计日志
         private readonly List<AuditLogItem> _auditLogs = new List<AuditLogItem>();
@@ -2769,6 +2772,10 @@ namespace DBGuardianDesktop
                 _btnEvoBannerToggleRect = new RectangleF(banner.Right - 178f, banner.Y + 26f, 158f, 36f);
                 DrawHeaderButton(g, _btnEvoBannerToggleRect, _selfEvolutionEnabled ? "切换为静态确定性模式" : "重新开启自主进化模式", true, dark, bgObsidian, borderCol, fgPrimary, cIndigo);
 
+                // V5.0：一键运行受控 RSI 多代闭环（Eval-Gated Bounded RSI）
+                _btnRunRsiCycleRect = new RectangleF(_btnEvoBannerToggleRect.Left - 186f, banner.Y + 26f, 176f, 36f);
+                DrawHeaderButton(g, _btnRunRsiCycleRect, "🧬 运行受控 RSI 闭环", true, dark, bgObsidian, borderCol, fgPrimary, cEmerald);
+
                 // 3 张进化指标卡
                 float cardY = banner.Bottom + 20f;
                 float cardW = (contentW - 28f) / 3f;
@@ -2794,6 +2801,7 @@ namespace DBGuardianDesktop
                 g.DrawRectangle(borderPen, listBox.X, listBox.Y, listBox.Width, listBox.Height);
                 g.DrawString("进化快照版本控制 (Git-Style Rollback)", fH3, brPrimary, listBox.X + 20f, listBox.Y + 16f);
                 g.DrawString("对蒸馏出的检测规则、Prompt 策略与领域记忆进行快照管理，若指标退化可随时秒级回滚。", fDesc, brMuted, listBox.X + 20f, listBox.Y + 38f);
+                g.DrawString(_rsiSummaryText, fDesc, brEmerald, listBox.X + 20f, listBox.Y + 52f);
 
                 for (int i = 0; i < _evoVersions.Count; i++)
                 {
@@ -3362,6 +3370,30 @@ namespace DBGuardianDesktop
             }
             else if (_currentView == 3)
             {
+                if (_btnRunRsiCycleRect.Contains(pt))
+                {
+                    string json = RunLocalPythonBridge("-m apps.desktop.launcher --run-rsi-cycle");
+                    string finalVersion = ExtractJsonField(json, "final_version");
+                    if (string.IsNullOrEmpty(finalVersion))
+                    {
+                        ShowToast("RSI 闭环未完成：未取得实测报告（检查 benchmarks/rsi 套件）", "amber");
+                        return;
+                    }
+                    string initialVersion = ExtractJsonField(json, "initial_version");
+                    string gain = ExtractJsonField(json, "monotonic_gain");
+                    Match mg = Regex.Match(json, "\"generations_executed\"\\s*:\\s*(\\d+)");
+                    Match mi = Regex.Match(json, "\"initial_holdout_accuracy\"\\s*:\\s*([0-9.]+)");
+                    Match mf = Regex.Match(json, "\"final_holdout_accuracy\"\\s*:\\s*([0-9.]+)");
+                    int generations = 0;
+                    if (mg.Success) int.TryParse(mg.Groups[1].Value, out generations);
+                    string accRange = (mi.Success ? mi.Groups[1].Value : "?") + " → " + (mf.Success ? mf.Groups[1].Value : "?");
+                    _rsiSummaryText = "最近一次闭环: " + initialVersion + " → " + finalVersion
+                        + "（" + generations + " 代, Holdout " + accRange + ", 增益 " + gain + "）";
+                    AddAuditEntry("进化蒸馏", "受控 RSI 闭环", "运行 " + generations + " 代 Eval-Gated RSI，Holdout 准确率 " + accRange + "，最终激活 " + finalVersion, "已晋升/回滚核验");
+                    ShowToast("受控 RSI 闭环完成: " + initialVersion + " → " + finalVersion + "，Holdout " + accRange, "emerald");
+                    TriggerMicroVibration();
+                    return;
+                }
                 if (_btnEvoBannerToggleRect.Contains(pt))
                 {
                     ToggleSelfEvolution();
@@ -3649,6 +3681,17 @@ namespace DBGuardianDesktop
                     RenderEntireWorkbench(g, true);
                 }
                 bmpEval.Save(Path.Combine(outDir, "harness_dark_eval.png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
+
+            // V5.0：自主进化中心（含「运行受控 RSI 闭环」入口）预览
+            _currentView = 3;
+            using (Bitmap bmpEvo = new Bitmap(1540, 900))
+            {
+                using (Graphics g = Graphics.FromImage(bmpEvo))
+                {
+                    RenderEntireWorkbench(g, true);
+                }
+                bmpEvo.Save(Path.Combine(outDir, "harness_dark_evolution.png"), System.Drawing.Imaging.ImageFormat.Png);
             }
             _currentView = 0;
         }

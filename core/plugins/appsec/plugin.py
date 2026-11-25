@@ -499,6 +499,7 @@ class AppSecPlugin:
         draft_provider: Callable[[ProbeFinding, TargetAsset, int, tuple[str, ...]], RemediationProposal] | None = None,
         isolated_verifier: Callable[..., HarnessOutcome] | None = None,
         repo_root: Any | None = None,
+        strategy_store: Any | None = None,
     ) -> None:
         self._probe = AppSecProbe()
         self._masker = AppSecMasker()
@@ -510,6 +511,8 @@ class AppSecPlugin:
         self._executor = AppSecExecutor()
         self._gateway = gateway
         self._draft_provider = draft_provider
+        # V5.0：只有显式注入策略仓库时才读取 active bundle 的修复模板与 Prompt 指导
+        self._strategy_store = strategy_store
         self._assets: dict[str, TargetAsset] = {}
         self._findings: dict[str, ProbeFinding] = {}
         self._proposals: dict[str, RemediationProposal] = {}
@@ -635,9 +638,32 @@ class AppSecPlugin:
             code_refs=tuple(code_refs),
             notes=(f"联合方案：代码 Patch + DB 加固 SQL（{finding.category}）",),
         )
+        if self._strategy_store is not None:
+            proposal = self._apply_strategy_notes(proposal, finding)
         if feedback:
             proposal = self._harden(proposal, feedback)
         return proposal
+
+    def _apply_strategy_notes(
+        self, proposal: RemediationProposal, finding: ProbeFinding
+    ) -> RemediationProposal:
+        """把当前激活策略包的修复模板与 Prompt 指导记入提案备注。
+
+        刻意**不改动** ``standard_fix``：策略进化只影响"怎么解释与复核修复"，
+        patch 文本的生成口径仍由插件决定，避免自我改写绕过代码审计。
+        """
+        try:
+            active = self._strategy_store.get_active()
+        except Exception:  # noqa: BLE001 - 策略仓库未就绪时退回默认行为
+            return proposal
+        notes = list(proposal.notes)
+        notes.append(f"[strategy:{active.version_id}] generation={active.generation}")
+        template = active.repair_templates.get(finding.category)
+        if template:
+            notes.append(f"[strategy:{active.version_id}] repair_template={template}")
+        for directive in active.prompt_directives:
+            notes.append(f"[strategy:{active.version_id}] directive={directive}")
+        return replace(proposal, notes=tuple(notes))
 
     def _harden(self, proposal: RemediationProposal, feedback: tuple[str, ...]) -> RemediationProposal:
         codes = {code.strip().upper() for code in feedback if code.strip()}

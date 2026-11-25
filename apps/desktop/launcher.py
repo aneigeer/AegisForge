@@ -422,6 +422,83 @@ def run_desktop_golden_export(*, repo_root: Path = ROOT, suite_version: str = "g
     }
 
 
+def run_rsi_cycle(
+    *,
+    repo_root: Path = ROOT,
+    max_generations: int = 3,
+    patience: int = 2,
+    reset_to_seed: bool = True,
+) -> dict[str, Any]:
+    """运行一次受控的多代递归自我改进（Eval-Gated Bounded RSI）闭环。
+
+    每代：Train 评测 -> 失败归因 -> 提案 S_{g+1} -> Holdout 影子门控 -> 晋升或回滚。
+    结果落盘 ``runs/evolution/rsi-latest.json``，并返回结构化摘要供桌面端展示。
+    """
+    from core.evolution.proposer import SelfImprovementProposer
+    from core.evolution.rsi_loop import run_bounded_rsi_loop
+    from core.evolution.runtime_adapter import describe_bundle
+    from core.evolution.shadow_evaluator import (
+        DEFAULT_HOLDOUT_SUITE,
+        DEFAULT_TRAIN_SUITE,
+        ShadowEvaluator,
+    )
+    from core.evolution.strategy_store import StrategyStore, default_seed_bundle
+    from core.platform.ten_modules import (
+        AuditEcosystemExporter,
+        EvolutionMode,
+        ToggleableEvolutionEngine,
+    )
+
+    root = Path(repo_root)
+    store = StrategyStore(root / "runs" / "evolution" / "strategies")
+    if reset_to_seed:
+        # 每次 CLI 调用视为一次独立世代实验：归档历史谱系并回到 S_0，保证可复现
+        store.reset_to_seed(default_seed_bundle())
+
+    evaluator = ShadowEvaluator(
+        _resolve_benchmark_path(root, DEFAULT_TRAIN_SUITE),
+        _resolve_benchmark_path(root, DEFAULT_HOLDOUT_SUITE),
+    )
+    engine = ToggleableEvolutionEngine(EvolutionMode.SHADOW)
+    audit = AuditEcosystemExporter()
+
+    report = run_bounded_rsi_loop(
+        store,
+        SelfImprovementProposer(),
+        evaluator,
+        max_generations=max_generations,
+        patience=patience,
+        engine=engine,
+        audit=audit,
+    )
+
+    payload = report.to_dict()
+    payload.update(
+        {
+            "status": "ok",
+            "store_root": str(store.root),
+            "active_strategy": describe_bundle(store.get_active()),
+            "suite": evaluator.describe(),
+            "worm_integrity_ok": audit.verify_integrity(),
+            "worm_events": [item["event_type"] for item in audit.entries],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    out_path = root / "runs" / "evolution" / "rsi-latest.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    payload["report_path"] = str(out_path)
+    return payload
+
+
+def _resolve_benchmark_path(repo_root: Path, relative: Path) -> Path:
+    """优先用目标仓库内的套件，缺失时回落到代码仓库自带套件（便于 tmp 目录下运行）。"""
+    candidate = Path(repo_root) / relative
+    if candidate.is_file():
+        return candidate
+    return Path(ROOT) / relative
+
+
 def is_dbguardian_running(host: str, port: int, *, timeout_s: float = 1.0) -> bool:
     """探测目标端口是否已运行 DBGuardian API。"""
     url = f"http://{host}:{port}/healthz"
@@ -529,6 +606,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="护栏评测套件路径（缺省 benchmarks/guardrails/suite-agent-safety-v1.json）",
     )
+    parser.add_argument(
+        "--run-rsi-cycle",
+        action="store_true",
+        help="运行受控多代 RSI 闭环（Train/Holdout 门控 + 晋升/回滚），落盘 runs/evolution/rsi-latest.json",
+    )
+    parser.add_argument("--rsi-max-generations", type=int, default=3, help="RSI 最大代数（硬上限 5）")
     args = parser.parse_args(argv)
 
     ensure_env_and_master_key(ROOT)
@@ -537,6 +620,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.scan_repo is not None:
         payload = scan_local_repo(args.scan_repo, repo_root=ROOT)
+        sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
+        return 0
+
+    if args.run_rsi_cycle:
+        payload = run_rsi_cycle(repo_root=ROOT, max_generations=args.rsi_max_generations)
         sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
         return 0
 

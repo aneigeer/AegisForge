@@ -1,0 +1,272 @@
+{
+  "schema_version": "5.0.0",
+  "product_name": "AegisForge",
+  "document_title": "AegisForge V5.0 — Eval-Gated Bounded RSI（受控递归自我改进）AI 执行规范",
+  "generated_at": "2026-11-24T22:12:00+08:00",
+  "target_executor": "autonomous_coding_agent",
+  "rsi_definition_and_scope": {
+    "target_standard": "Eval-Gated Bounded Recursive Self-Improvement（受门控约束的工程级递归自我改进）",
+    "why_current_v41_is_not_rsi_yet": [
+      "core/agents/evolution.py 当前仅写入文本记忆 (self._memory.remember)，并未真正改写 Agent 运行时使用的 Prompt/策略规则/修复模板",
+      "EvolutionAgent._classify 当前返回固定分值 (1.0 / 0.98 / 0.90)，未联动真实 Eval 套件重跑验证",
+      "缺少「第 N 代改进后的系统 -> 驱动第 N+1 代产生更优策略与修复」的跨代闭环迭代调度器与防过拟合 Holdout 门禁"
+    ],
+    "five_pillars_to_reach_rsi": [
+      "1. 可版本化且真正参与运行时决策的 Agent 策略包 (AgentStrategyBundle)，与不可篡改的安全宪法内核 (Constitutional Lock) 物理隔离",
+      "2. 失败归因 + 元经验感知的自我改进提案器 (Failure Attribution & Meta-Proposer)",
+      "3. 真实 Train/Holdout 分离评测 + 防泄漏门控 (替代写死的 shadow_score)",
+      "4. 有界跨代递归循环调度器 (Bounded RSI Loop: S_0 -> S_1 -> S_2, 退化即回滚)",
+      "5. 完整 WORM 谱系账本 + 桌面端可视化触发"
+    ]
+  },
+  "current_verified_baseline": {
+    "existing_modules": {
+      "evolution_agent": "core/agents/evolution.py",
+      "evolution_engine": "core/platform/ten_modules.py::ToggleableEvolutionEngine",
+      "base_specialist": "core/agents/specialists/base_specialist.py",
+      "appsec_plugin": "core/plugins/appsec/plugin.py",
+      "guardrails_policies": "core/guardrails/policies.py",
+      "agent_benchmark": "core/eval/agent_benchmark.py",
+      "eval_repository": "core/eval/repository.py",
+      "golden_dataset": "core/benchmark/golden.py",
+      "desktop_bridge": "apps/desktop/launcher.py",
+      "desktop_shell": "apps/desktop/NativeShell.cs"
+    },
+    "verified_test_baseline": "tests/unit 2,060 passed; tests/unit/test_v41_*.py + test_desktop_launcher.py 47 passed"
+  },
+  "engineering_invariants": [
+    {
+      "id": "INV-CONSTITUTIONAL-LOCK",
+      "rule": "自我改写严禁触碰不可变安全内核：不得修改 core/guardrails/、core/security/、core/audit/、core/orchestrator/state_graph.py 的源码，不得关闭 Fernet 脱敏、HITL 审批门禁、lock_wait_timeout 或 WORM 审计，不得放宽 max_self_correction_rounds <= 3。"
+    },
+    {
+      "id": "INV-NO-HARDCODED-SCORE",
+      "rule": "晋升决策严禁使用写死分值（如固定 1.0/0.98）；必须基于真实跑过 Train/Holdout 测试集得到的 compare_metrics 判决与 leakage_count == 0。"
+    },
+    {
+      "id": "INV-HOLDOUT-ANTI-GOODHART",
+      "rule": "用于生成改进提案的 Train 失败轨迹与用于最终晋升裁决的 Holdout 用例集必须按 workload_group 严格隔离，防止刷榜过拟合。"
+    },
+    {
+      "id": "INV-ZERO-HEAVY-INFRA",
+      "rule": "完整 RSI 多代循环必须在离线无网络环境确定性跑通（零外部 API Key 与 Docker 依赖亦可复现 S_0 -> S_1 -> S_2 增益）。"
+    },
+    {
+      "id": "INV-SECRET-SCAN-SAFE",
+      "rule": "所有新增 JSON 套件与测试夹具只能使用无害自定义前缀（如 CANARY_SEC_TOKEN_*），不得触发 .github/workflows/ci.yml Secret Scan。"
+    },
+    {
+      "id": "INV-PYTEST-SEQUENTIAL",
+      "rule": "Windows 下严格顺序执行 .\\.venv\\Scripts\\python.exe -m pytest <target> -o addopts=\"\" -q -p no:cacheprovider，禁止并发 pytest。"
+    }
+  ],
+  "execution_steps": [
+    {
+      "step_id": "RSI-STEP-01",
+      "title": "构建可版本化策略包仓库（StrategyStore）与宪法安全锁",
+      "depends_on": [],
+      "target_files": [
+        "core/evolution/__init__.py",
+        "core/evolution/strategy_store.py"
+      ],
+      "design_spec": {
+        "purpose": "把“可被 Agent 自我改写的部分”结构化封装为声明式策略包，落盘在 runs/evolution/strategies/ 并保留不可变谱系（lineage）与 SHA-256 指纹，与受宪法锁保护的核心安全源码彻底分离。",
+        "required_classes_and_functions": [
+          "AgentStrategyBundle(version_id: str, parent_version: str | None, generation: int, policy_rules: list[dict[str, Any]], repair_templates: dict[str, str], prompt_directives: list[str], noise_filters: list[str], meta_lessons: list[dict[str, Any]], content_sha256: str)",
+          "ConstitutionalViolationError(ValueError)",
+          "assert_constitutional_safe(bundle: AgentStrategyBundle) -> None",
+          "StrategyStore(root_dir: Path)"
+        ],
+        "behavior_rules": [
+          "assert_constitutional_safe 强制校验：不允许 policy_rules 放空基础安全边界，不允许 prompt_directives/repair_templates 包含跳过 HITL/脱敏/审计或写死通过标记，且版本只能写入 StrategyStore 托管目录。",
+          "StrategyStore 提供 seed_initial(bundle)（生成 Gen 0 基线 S_0）、save_candidate(bundle)、promote(version_id)、rollback(reason)、get_active()、lineage()。"
+        ]
+      },
+      "acceptance_criteria": [
+        "任何试图禁用 HITL / 脱敏 / WORM 或篡改核心模块的候选策略被 assert_constitutional_safe 立即拦截并抛出 ConstitutionalViolationError",
+        "支持 S_0 -> S_1 -> S_2 链式谱系追踪与任意代一键回滚"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py -k store -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-02",
+      "title": "实现失败归因与元经验感知的自我改进提案器（Meta-Proposer）",
+      "depends_on": [
+        "RSI-STEP-01"
+      ],
+      "target_files": [
+        "core/evolution/proposer.py"
+      ],
+      "design_spec": {
+        "purpose": "让系统分析真实 Eval 失败样本、Critic 打回堆栈与历史谱系（meta_lessons），自动合成下一代候选策略包 S_{g+1}；同时从自己过去的成功/失败变异中吸取经验，使改版策略随代数提升。",
+        "required_classes_and_functions": [
+          "FailureCluster(category: str, sample_ids: list[str], root_cause: str, suggested_mutation: str)",
+          "SelfImprovementProposer",
+          "SelfImprovementProposer.attribute_failures(eval_outcomes: Sequence[dict[str, Any]], critic_verdicts: Sequence[dict[str, Any]]) -> list[FailureCluster]",
+          "SelfImprovementProposer.propose_next_generation(active: AgentStrategyBundle, failures: Sequence[FailureCluster], lineage: Sequence[dict[str, Any]]) -> AgentStrategyBundle"
+        ],
+        "behavior_rules": [
+          "按失败类别聚簇：例如遗漏新变异的硬编码凭据/提示注入/路径逃逸 -> 生成新的 PolicyRule；AppSec 某类漏洞补丁频繁未通过 Critic 沙箱 -> 合成改进版 repair_template；误报用例 -> 添加精确 noise_filter（同时避免过宽误杀）。",
+          "元反思（Meta-Reflection）：propose_next_generation 必须读取 lineage 中记录的 rejected_mutations（上一轮曾导致指标下降或 Holdout 退化的变异签名），严禁重复提出已被证伪的同款失败修改，并优先放大上一轮带来正向增益的变异类型。"
+        ]
+      },
+      "acceptance_criteria": [
+        "给定真实失败集合与谱系历史，能产出带明确 parent_version 与 generation = active.generation + 1 的新策略包",
+        "面对曾被驳回的失败变异记录，Proposer 会自动避开并切换其他修复维度"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py -k proposer -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-03",
+      "title": "策略包运行时热绑定（Strategy-Driven Runtime）",
+      "depends_on": [
+        "RSI-STEP-01"
+      ],
+      "target_files": [
+        "core/evolution/runtime_adapter.py",
+        "core/guardrails/policies.py",
+        "core/plugins/appsec/plugin.py",
+        "core/agents/specialists/base_specialist.py"
+      ],
+      "design_spec": {
+        "purpose": "确保 StrategyStore.get_active() 中晋升的规则、修复模板与 Prompt 指导真正改变运行时 Agent 的检测与修补输出，打通「自我改写 -> 自身能力实际变强」的因果链。",
+        "required_classes_and_functions": [
+          "build_policy_from_bundle(bundle: AgentStrategyBundle) -> DefaultAgentSafetyPolicy",
+          "build_strategy_aware_runner(bundle: AgentStrategyBundle, *, guardrail: AgentGuardrailClient | None = None) -> Callable[[AgentEvalCase], dict[str, Any]]"
+        ],
+        "behavior_rules": [
+          "DefaultAgentSafetyPolicy 支持在基础规则之上动态加载 bundle.policy_rules（不削弱只可增强或精准过滤已验证误报）。",
+          "AppSecPlugin 的 draft_provider 与 DomainSpecialistAgent 保持既有默认行为完全不变；仅在显式注入 strategy_store 时读取 active bundle 的 repair_templates 与 prompt_directives。",
+          "同一测试集下，当 active bundle 从低版本 S_0 切换为改进版本 S_1 时，build_strategy_aware_runner 的真实命中率 / 阻断率 / 误报率必须产生可测变化。"
+        ]
+      },
+      "acceptance_criteria": [
+        "不传入 strategy_store 时，现有 2,060 项单测行为零变化",
+        "同一离线测试集传入 S_0 与 S_1 运行器时，可真实观察到输出差异与指标变化"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py -k runtime -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-04",
+      "title": "Train/Holdout 防作弊套件与真实 Shadow Evaluator 门控",
+      "depends_on": [
+        "RSI-STEP-03"
+      ],
+      "target_files": [
+        "benchmarks/rsi/suite-rsi-train.json",
+        "benchmarks/rsi/suite-rsi-holdout.json",
+        "core/evolution/shadow_evaluator.py",
+        "core/agents/evolution.py"
+      ],
+      "design_spec": {
+        "purpose": "用真实离线基准评测替代 EvolutionAgent 里写死的 1.0/0.98/0.90 固定分数，并通过 Train 与 Holdout 的 workload_group 隔离防止过拟合。",
+        "required_classes_and_functions": [
+          "ShadowEvalVerdict(promoted: bool, train_verdict: str, holdout_verdict: str, baseline_metrics: dict, candidate_metrics: dict, leakage_count: int, reason: str)",
+          "ShadowEvaluator(train_suite: Path, holdout_suite: Path)",
+          "ShadowEvaluator.evaluate_candidate(baseline: AgentStrategyBundle, candidate: AgentStrategyBundle, *, export_golden_dir: Path | None = None) -> ShadowEvalVerdict"
+        ],
+        "behavior_rules": [
+          "suite-rsi-train.json（至少 8 条）与 suite-rsi-holdout.json（至少 8 条）必须使用互不重叠的 workload_group 与未见过的新样本变体（含新型提示注入变体、混淆凭据格式、合法参数化边界样本）。",
+          "晋升硬条件（全部满足才返回 promoted=True）：1) assert_constitutional_safe 通过；2) Holdout 集上 compare_metrics 判为 CANDIDATE_BETTER（且未出现关键指标倒退）；3) Train 与 Holdout 均满足 leakage_count == 0。",
+          "在 core/agents/evolution.py::EvolutionAgent 中保留原默认行为兼容既有 V3.0 单测，同时新增可选 shadow_evaluator 注入参数：注入时由真实 ShadowEvaluator 决定 shadow_score 与 shadow_passed，不再使用固定常数值。"
+        ]
+      },
+      "acceptance_criteria": [
+        "Train 与 Holdout 的 workload_group 交集为空",
+        "只针对 Train 特化过拟合但伤害 Holdout 准确率的投机策略会被 ShadowEvaluator 拦截（promoted=False）"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py -k evaluator -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-05",
+      "title": "实现有界多代递归自我改进调度器（Bounded RSI Loop）",
+      "depends_on": [
+        "RSI-STEP-02",
+        "RSI-STEP-04"
+      ],
+      "target_files": [
+        "core/evolution/rsi_loop.py"
+      ],
+      "design_spec": {
+        "purpose": "打通「评估 S_g -> 失败归因 -> 提出 S_{g+1} -> Holdout 影子门控 -> 晋升或自动回滚 -> 基于 S_{g+1} 发起下一代递归改进」的多代闭环。",
+        "required_classes_and_functions": [
+          "GenerationRecord(generation: int, baseline_version: str, candidate_version: str, promoted: bool, rolled_back: bool, holdout_accuracy_before: float, holdout_accuracy_after: float, false_positive_before: float, false_positive_after: float, leakage_count: int, reason: str)",
+          "RsiRunReport(generations_executed: int, initial_version: str, final_version: str, initial_holdout_accuracy: float, final_holdout_accuracy: float, monotonic_gain: float, records: list[GenerationRecord], lineage_sha256: str)",
+          "run_bounded_rsi_loop(store: StrategyStore, proposer: SelfImprovementProposer, evaluator: ShadowEvaluator, *, max_generations: int = 3, patience: int = 2, engine: ToggleableEvolutionEngine | None = None, audit: AuditEcosystemExporter | None = None) -> RsiRunReport"
+        ],
+        "behavior_rules": [
+          "受 max_generations（硬上限 <= 5）与 patience 早停约束。",
+          "每代必须在「当前已晋升的最新策略 S_g」基础上做下一轮评估与提案（真正实现递归叠加，而非每次都从 S_0 重来）。",
+          "候选失败或触发宪法锁时自动 rollback，写入负向 meta_lesson，并记录 WORM 审计事件（RSI_GENERATION_PROMOTED / RSI_GENERATION_REJECTED）。",
+          "同步更新 ToggleableEvolutionEngine 的版本栈，使既有版本回滚 API 可直接回退任意 RSI 代数。"
+        ]
+      },
+      "acceptance_criteria": [
+        "离线运行 max_generations=3 时，能实际观察到连续多代晋升（例如 S_0 -> S_1 -> S_2），且最终 Holdout 准确率严格高于 S_0，leakage_count 恒为 0",
+        "若强行注入退化候选策略，loop 能自动触发回滚且 final_version 保持上次最优稳定版"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py -k loop -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-06",
+      "title": "接入桌面端与 CLI 一键运行 RSI 多代闭环",
+      "depends_on": [
+        "RSI-STEP-05"
+      ],
+      "target_files": [
+        "apps/desktop/launcher.py",
+        "apps/desktop/NativeShell.cs",
+        "tests/unit/test_desktop_launcher.py"
+      ],
+      "design_spec": {
+        "purpose": "允许用户通过 CLI 或 AegisForge.exe 桌面端「自主进化中心」直接运行一次完整的受控 RSI 多代周期，并展示每一代的 Holdout 指标跃迁、晋升/回滚状态与最终激活版本。",
+        "behavior_rules": [
+          "在 apps/desktop/launcher.py 新增 --run-rsi-cycle 参数：在独立运行目录 runs/evolution/rsi-latest.json 落盘完整 RsiRunReport JSON，并返回结构化摘要（generations_executed, initial_version, final_version, initial_holdout_accuracy, final_holdout_accuracy, records）。",
+          "在 NativeShell.cs「自主进化中心」新增「🧬 运行受控 RSI 自进化闭环」按钮，展示代际跃迁结果，并执行 scripts/build_desktop_app.ps1 重新编译 AegisForge.exe。"
+        ]
+      },
+      "acceptance_criteria": [
+        "python -m apps.desktop.launcher --run-rsi-cycle 输出合法 JSON（status=ok 且 final_holdout_accuracy > initial_holdout_accuracy）",
+        "scripts/build_desktop_app.ps1 编译成功并更新 dist/AegisForge.exe"
+      ],
+      "verification_command": ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_desktop_launcher.py tests/unit/test_v5_rsi_loop.py -o addopts=\"\" -q -p no:cacheprovider"
+    },
+    {
+      "step_id": "RSI-STEP-07",
+      "title": "全量验证、防退化测试与 README 口径同步",
+      "depends_on": [
+        "RSI-STEP-06"
+      ],
+      "target_files": [
+        "tests/unit/test_v5_rsi_loop.py",
+        "README.md"
+      ],
+      "design_spec": {
+        "purpose": "补齐 V5.0 全链路单测并更新 README，清晰区分「已验证的受控多代 RSI（Eval-Gated Bounded RSI）」与「无约束自由改写内核」的边界。",
+        "behavior_rules": [
+          "tests/unit/test_v5_rsi_loop.py 必须覆盖：store 宪法锁、proposer 元反思避坑、runtime 真实行为改变、holdout 防过拟合拦截、至少 2 代连续增益（S_0 -> S_1 -> S_2）、退化自动回滚、launcher --run-rsi-cycle。",
+          "更新 README.md 增加受控 RSI 闭环说明与实测测试基线；按顺序跑完所有终验命令。"
+        ]
+      },
+      "acceptance_criteria": [
+        "test_v5_rsi_loop.py 全部通过",
+        "全量 tests/unit 100% 通过无新增失败",
+        "scripts/ci_check.ps1 退出码 0（若 Docker daemon 未起需如实注明跳过的 compose 项）"
+      ],
+      "verification_command": "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1"
+    }
+  ],
+  "final_acceptance_gate": {
+    "required_commands": [
+      ".\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_v5_rsi_loop.py tests/unit/test_v41_agent_eval.py tests/unit/test_desktop_launcher.py -o addopts=\"\" -q -p no:cacheprovider",
+      ".\\.venv\\Scripts\\python.exe -m pytest tests/unit -o addopts=\"\" -q -p no:cacheprovider",
+      ".\\.venv\\Scripts\\python.exe -m apps.desktop.launcher --run-rsi-cycle",
+      "powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1",
+      "powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1"
+    ],
+    "reporting_rules_for_executor": [
+      "如实汇报 S_0 -> S_1 -> S_2 各代的真实 Holdout 指标变化与最终测试总数，禁止夸大为无约束通用 AGI/RSI。",
+      "未收到用户明确指令前严禁执行 git push。"
+    ]
+  }
+}

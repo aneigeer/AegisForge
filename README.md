@@ -2,7 +2,7 @@
 
 **零信任 AI 护栏工程与多 Agent 安全运维平台（Zero-Trust AI Harness, Multi-Agent SecOps & Reusable Guardrails）**
 
-[![Tests](https://img.shields.io/badge/Unit_Tests-2,060_passed-10b981.svg)](#六测试与验证)
+[![Tests](https://img.shields.io/badge/Unit_Tests-2,085_passed-10b981.svg)](#六测试与验证)
 [![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#五快速开始)
 [![Desktop](https://img.shields.io/badge/Desktop-AegisForge.exe_(6_Views)-6366f1.svg)](#三原生桌面工作台与特色交互)
 [![Architecture](https://img.shields.io/badge/Architecture-StateGraph_%C2%B7_4_Plugins-f59e0b.svg)](#二系统架构与多-agent-协同)
@@ -23,6 +23,7 @@
 - [五、快速开始](#五快速开始)
 - [六、测试与验证](#六测试与验证)
 - [七、目录结构、技术规范与安全红线](#七目录结构技术规范与安全红线)
+- [八、V5.0：受控递归自我改进（Eval-Gated Bounded RSI）](#八v50受控递归自我改进eval-gated-bounded-rsi)
 
 ---
 
@@ -90,6 +91,14 @@ flowchart TD
 ### 特色安全与交互设计
 - **长按边框蓄力防误触审批**：按住 `长按批准执行` 或 `长按驳回` 按钮时，霓虹进度条沿按钮四条边框顺时针填充；未满松开则弹性阻尼回弹清空；填满后触发窗口微震动并锁定状态，彻底防止高危操作误触。
 - **双模式动效切换**：支持「**1.4 秒 SmoothStep 慢速圆心扩散主题切换**」与「**极速排障模式**」（一键关闭非必要过渡动效，实现 0ms 瞬切响应）。
+
+### 界面实拍（`AegisForge.exe --render-preview` 离屏渲染，非示意图）
+
+| 工作流编排（8 节点 DAG + 长按蓄力审批） | 评测与数据中台（LIVE_EVAL + 金标门禁） | 自主进化中心（受控 RSI 闭环入口） |
+| --- | --- | --- |
+| ![工作流编排](docs/assets/harness_dark_workflow.png) | ![评测与数据](docs/assets/harness_dark_eval.png) | ![自主进化中心](docs/assets/harness_dark_evolution.png) |
+
+> 截图由 `dist/AegisForge.exe --render-preview docs/assets` 在本地离屏渲染生成，随仓库同步更新；不含任何真实凭据或客户数据。
 
 ---
 
@@ -238,14 +247,14 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_docker_runtime.ps1
   tests/unit/test_desktop_launcher.py `
   -o addopts="" -q -p no:cacheprovider
 
-# 2. 全量单元测试套件（2,060 passed in 33.14s）
+# 2. 全量单元测试套件（2,085 passed in 27.11s）
 .\.venv\Scripts\python.exe -m pytest tests/unit -o addopts="" -q -p no:cacheprovider
 
 # 3. 本地 CI 全套检查（compileall、全量单测、Compose 校验、密钥泄露扫描）
 powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1
 ```
 
-> **最新实测基线**：全量单元测试 **`2,060 passed, 1 warning in 33.14s`**；V4.1 + 桌面桥接专项测试 **`47 passed in 4.23s`**；[scripts/ci_check.ps1](scripts/ci_check.ps1) 在本地 Docker daemon 未启动时会跳过 `docker compose config` 并通过其余全部检查（退出码 `0`）。
+> **最新实测基线**：全量单元测试 **`2,085 passed, 1 warning in 27.11s`**；V5.0 受控 RSI + 桌面桥接专项测试 **`35 passed`**；[scripts/ci_check.ps1](scripts/ci_check.ps1) 在本地 Docker daemon 未启动时会跳过 `docker compose config` 并通过其余全部检查（退出码 `0`）。
 
 ---
 
@@ -276,7 +285,7 @@ database/               17 支数据库迁移脚本（001–017）与只读/追�
 deploy/                 Docker 网络隔离拓扑与生产部署清单
 docs/                   ADR、平台详细大纲与 V2.0/V3.0/V4.1 AI 执行规范 JSON
 scripts/                桌面端编译 (build_desktop_app.ps1)、CI 检查 (ci_check.ps1)、压测脚本
-tests/                  单元测试与集成测试（2,060+ 单元测试用例）
+tests/                  单元测试与集成测试（2,085+ 单元测试用例）
 ```
 
 ### 规范文档索引
@@ -289,6 +298,65 @@ tests/                  单元测试与集成测试（2,060+ 单元测试用例�
 - **控制库只追加权限**：控制库账号 `dg_ctl` 对审计与事件表仅授予 `SELECT / INSERT`（禁止 `UPDATE / DELETE`）。
 - **凭证与映射零明文**：所有生产 DSN、BYOK Key 与脱敏映射表均经 `Fernet / KMS` 加密存储，桌面端零凭据落盘；PII 永不明文还原。
 - **失败闭环（Fail-Closed）**：策略缺失、Critic 自愈超过 `3` 轮、缺少有效 `Rollback`、或轨道 2 发现 `>30s` 活跃长事务时一律阻断或转人工审批。
+
+---
+
+## 八、V5.0：受控递归自我改进（Eval-Gated Bounded RSI）
+
+V5.0 把"自主进化"从**文本记忆写入**升级为**可验证能力的多代递归改进**，同时明确划出"能改什么、绝不能改什么"的边界。
+
+### 8.1 与"无约束自由改写内核"的区别
+
+| 维度 | 本实现（受控 RSI） | 无约束自由改写（未采用） |
+|---|---|---|
+| 可改写面 | 仅声明式策略包（规则/修复模板/Prompt 指导/元经验） | 任意源码 |
+| 安全内核 | `core/guardrails/`、`core/security/`、`core/audit/`、`state_graph.py` **代码级锁定** | 可被改写 |
+| 晋升依据 | 实跑 Train/Holdout 的 `compare_metrics` + `leakage_count==0` | 模型自评/固定分值 |
+| 代数上限 | `max_generations <= 5` + patience 早停 | 无界 |
+| 退化处理 | 自动驳回 + 回滚 + WORM 审计 | 无保证 |
+
+### 8.2 五段闭环
+
+```text
+S_g ──Train 评测──> 失败归因（聚簇）──Meta-Proposer──> S_{g+1} 候选
+    ──Holdout 影子门控──> 晋升（写谱系+WORM）或 驳回（记负向经验+回滚）
+    └──────────────── S_{g+1} 继续下一代 ────────────────┘
+```
+
+| 模块 | 职责 |
+|---|---|
+| `core/evolution/strategy_store.py` | 策略包版本化 + 宪法锁 `assert_constitutional_safe` + 谱系/回滚 |
+| `core/evolution/proposer.py` | 失败归因聚簇 + 元反思（避开被证伪的变异、放大有增益的变异） |
+| `core/evolution/runtime_adapter.py` | 把激活策略热绑定到检测策略与评测运行器（真实改变行为） |
+| `core/evolution/shadow_evaluator.py` | Train/Holdout 严格隔离 + 晋升硬条件 |
+| `core/evolution/rsi_loop.py` | 有界多代调度、逐代记录、WORM 事件、引擎版本栈同步 |
+
+### 8.3 一键运行
+
+```powershell
+# CLI：跑完整个受控 RSI 周期，落盘 runs/evolution/rsi-latest.json
+.\.venv\Scripts\python.exe -m apps.desktop.launcher --run-rsi-cycle
+
+# 桌面端：「✦ 自主进化中心」→「🧬 运行受控 RSI 闭环」
+```
+
+实测（离线、无外部 API Key、无 Docker）：
+
+| 代 | 版本 | Holdout 准确率 | 误报率 | 泄漏 | 决策 |
+|---|---|---|---|---|---|
+| — | `S_0` | 0.50 | 0.00 | 0 | 基线（仅基础 4 类规则） |
+| 1 | `S_1` | 0.80 | 0.00 | 0 | 晋升（新增注入语用变体 + 恒真条件删表） |
+| 2 | `S_2` | 1.00 | 0.00 | 0 | 晋升（新增编码凭据 + URL 编码路径穿越） |
+| 3 | `S_3` 候选 | 1.00 | 0.00 | 0 | 驳回：无可用新变异（早停） |
+
+净增益 `monotonic_gain = 0.50`，`final_version = S_2`，`leakage_count` 全程为 0。
+
+### 8.4 防作弊设计
+
+- **Train/Holdout 零重叠**：`ShadowEvaluator` 在加载套件时校验 `workload_group` 交集为空，重叠直接抛错；
+- **Holdout 只用于裁决**：提案只读 Train 失败轨迹，Holdout 仅在最终晋升判定时运行；
+- **刷榜会被拦**：只记住 Train 字面量的投机策略在 Holdout 上无增益，`compare_metrics` 判非 `CANDIDATE_BETTER` → 驳回（单测 `test_evaluator_blocks_train_overfit_candidate` 覆盖）；
+- **缺测不补零**：本地无真实模型调用，`latency_p95_ms` / `tokens_per_case` 恒为 `null`，不参与比较。
 
 ---
 
