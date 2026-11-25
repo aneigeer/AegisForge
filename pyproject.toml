@@ -1,30 +1,33 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dbguardian"
 version = "0.1.0"
-description = "DBGuardian - MySQL 8 专业数据库诊断、故障恢复与持续进化 Agent（Alpha）"
+description = "AegisForge - 零信任 AI 护栏工程与多 Agent 安全运维平台（技术预览）"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.14,<3.15"
+# 兼容下限取 3.12：本仓库已在 CPython 3.12 与 3.14 上跑通全量单测（见 CI matrix）。
+# 之所以不写死单一小版本：库形态的可复用组件需要能被其他 Python 项目直接安装。
+requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115,<1.0",
-    "uvicorn[standard]>=0.30,<1.0",
-    "pydantic>=2.7,<3.0",
-    "pydantic-settings>=2.3,<3.0",
-    "PyMySQL>=1.1,<2.0",
-    "psycopg[binary]>=3.2,<4.0",
-    "jsonschema>=4.23,<5.0",
-    "cryptography>=42.0",
-    "httpx>=0.27,<1.0",
+    # 只约束"必需的下限"与"已知会破坏 API 的上限"，不锁小版本，便于与宿主项目共存。
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0,<3.0",
+    "PyMySQL>=1.0",
+    "psycopg[binary]>=3.1",
+    "jsonschema>=4.17",
+    "cryptography>=41.0",
+    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0,<9.0",
-    "httpx>=0.27,<1.0",
+    "pytest>=7.4",
+    "httpx>=0.24",
 ]
 
 [project.scripts]

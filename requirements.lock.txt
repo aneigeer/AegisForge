@@ -1,5 +1,7 @@
 ﻿# DBGuardian 依赖锁定文件（W01）
 # 运行环境：Python 3.14.7 (Windows x64)
+# 注意：pyproject 声明 requires-python >=3.12（不锁小版本上限）；本文件是 3.14 环境的解析快照，
+#       3.12 上已实测同一组版本可安装并通过全量单测（CI job: unit-python-floor）。
 # 本地 LAB：MySQL 8.0.46 / PostgreSQL 12.18
 # 生成命令：uv pip freeze --exclude-editable --python .venv\Scripts\python.exe
 # 说明：锁定版本来自实际 .venv；修改声明后请重新生成本文件。

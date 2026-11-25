@@ -90,3 +90,27 @@ jobs:
         run: python scripts/bootstrap_mysql.py
       - name: Integration tests (PostgreSQL tests skip when no DSN)
         run: python -m pytest tests/integration -q
+
+  # 跨版本兼容性：仓库声明 requires-python >=3.12（供其他项目 pip install -e 复用），
+  # 因此必须在下界解释器上真跑一遍全量单测，而不是只在 3.14 上验证。
+  unit-python-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit tests on declared floor (3.12)
+        run: python -m pytest tests/unit -q
+
+      - name: Compose config validation
+        run: docker compose config > /dev/null

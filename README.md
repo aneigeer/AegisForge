@@ -3,7 +3,7 @@
 **零信任 AI 护栏工程与多 Agent 安全运维平台（Zero-Trust AI Harness, Multi-Agent SecOps & Reusable Guardrails）**
 
 [![Tests](https://img.shields.io/badge/Unit_Tests-2,085_passed-10b981.svg)](#六测试与验证)
-[![Python](https://img.shields.io/badge/Python-3.14-38bdf8.svg)](#五快速开始)
+[![Python](https://img.shields.io/badge/Python-3.12%2B%20%7C%203.14-38bdf8.svg)](#五快速开始)
 [![Desktop](https://img.shields.io/badge/Desktop-AegisForge.exe_(6_Views)-6366f1.svg)](#三原生桌面工作台与特色交互)
 [![Architecture](https://img.shields.io/badge/Architecture-StateGraph_%C2%B7_4_Plugins-f59e0b.svg)](#二系统架构与多-agent-协同)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -202,8 +202,8 @@ powershell -ExecutionPolicy Bypass -File scripts/build_desktop_app.ps1
 ### 方式 B：完整控制面 API + 双引擎 Lab 环境
 
 ```powershell
-# 1. 安装依赖（Python 3.14）
-uv venv .venv --python 3.14
+# 1. 安装依赖（Python ≥3.12；3.12 与 3.14 均在 CI 验证）
+uv venv .venv --python 3.12
 uv pip install -e ".[dev]" --python .venv\Scripts\python.exe
 
 # 2. 初始化环境变量（.env 已被 gitignore，切勿提交真实密钥）

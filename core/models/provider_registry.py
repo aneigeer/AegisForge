@@ -377,7 +377,13 @@ class ModelProviderRepository:
         ]
         if not actives:
             return None
-        actives.sort(key=lambda row: str(row.get("created_at") or ""))
+        # 只追加语义下，"当前生效"= 最近一次激活。Windows 系统时钟分辨率约 15.6ms，
+        # 同一次测试里三个写入很容易落在**同一微秒**；只按 created_at 排序会退化为
+        # 依赖 dict 插入顺序（而 _latest 的插入顺序是 revision 降序，会把更旧的版本
+        # 判成胜出者）。因此必须用 revision 做二级键，保证结果只取决于数据。
+        actives.sort(
+            key=lambda row: (str(row.get("created_at") or ""), int(row.get("revision") or 0))
+        )
         row = actives[-1]
         return _row_to_record(row), row.get("api_key_cipher") or ""
 
